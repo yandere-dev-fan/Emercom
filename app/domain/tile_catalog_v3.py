@@ -127,11 +127,33 @@ IGNITION_THRESHOLDS: dict[tuple[str, int], int] = {
     ("walls", 4): 300,
 }
 
+# --- НОВЫЕ ФИЗИЧЕСКИЕ СВОЙСТВА ---
+HEAT_RELEASE_RATES: dict[tuple[str, int], int] = {
+    ("interior", 1): 10,  
+    ("interior", 2): 8,   
+    ("interior", 3): 20,  
+    ("walls", 1): 6,      
+    ("floor", 1): 5,      
+}
 
-def ignition_threshold(layer_key: str, code: int) -> int:
+THERMAL_CONDUCTIVITY: dict[tuple[str, int], float] = {
+    ("openings", 1): 0.8,  
+    ("openings", 2): 0.9,  
+    ("walls", 1): 0.4,     
+    ("walls", 2): 0.2,     
+    ("walls", 4): 0.1,     
+}
+
+
+def get_heat_release(layer_key: str, code: int) -> int:
+    return HEAT_RELEASE_RATES.get((layer_key, code), 0)
+
+
+def get_conductivity(layer_key: str, code: int) -> float:
     if code == 0:
-        return 9999
-    return IGNITION_THRESHOLDS.get((layer_key, code), 9999)
+        return 1.0
+    return THERMAL_CONDUCTIVITY.get((layer_key, code), 0.5)
+# ---------------------------------
 
 
 def object_level_code(floor_number: int) -> str:
