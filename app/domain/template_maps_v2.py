@@ -11,6 +11,7 @@ from app.db.models import AuditEvent, MapDocument, MapLayer, MapLevel, MapSnapsh
 from app.domain.map_codec import decode_cells, empty_cells, encode_cells
 from app.domain.tile_catalog_v3 import (
     MAX_OBJECT_FLOORS,
+    AREA_TILE_CATALOG,
     default_levels_for_kind,
     layer_order_for_kind,
     max_code_for_layer,
@@ -310,3 +311,57 @@ def clone_template_to_session_map(
                 )
             )
     return runtime_map
+
+
+def _resolve_template_object_map_title(
+    parent_map: MapDocument,
+    source_level_id: str | None,
+    source_index: int | None,
+) -> str:
+    base_title = f"{parent_map.title} / Объектовая карта"
+    if source_level_id is None or source_index is None:
+        return base_title
+
+    expected_count = parent_map.width * parent_map.height
+    if source_index >= expected_count:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Selected building index is out of range.")
+
+    level = next((item for item in parent_map.levels if item.id == source_level_id), None)
+    if level is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Selected level was not found.")
+
+    building_layer = next((item for item in level.layers if item.layer_key == "buildings"), None)
+    if building_layer is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Buildings layer was not found.")
+
+    building_cells = decode_cells(building_layer.cells_blob, expected_count)
+    building_code = building_cells[source_index]
+    if building_code == 0:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Selected cell does not contain a building.")
+
+    building_label = next((item.label for item in AREA_TILE_CATALOG["buildings"] if item.code == building_code), f"b{building_code}")
+    x = source_index % parent_map.width
+    y = source_index // parent_map.width
+    return f"{base_title} [{x},{y}] {building_label}"
+
+
+def create_template_object_map_from_existing(
+    db: Session,
+    *,
+    parent_map: MapDocument,
+    source_level_id: str | None = None,
+    source_index: int | None = None,
+) -> MapDocument:
+    if parent_map.kind != "area":
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Object maps can only be created from area maps.")
+    payload = MapCreateRequest(
+        title=_resolve_template_object_map_title(parent_map, source_level_id, source_index),
+        kind="object",
+        width=parent_map.width,
+        height=parent_map.height,
+        cell_size_px=parent_map.cell_size_px,
+        meters_per_cell=max(parent_map.meters_per_cell // 2, 1),
+        map_type=parent_map.map_type,
+        parent_map_id=parent_map.id,
+    )
+    return create_template_map(db, payload=payload)

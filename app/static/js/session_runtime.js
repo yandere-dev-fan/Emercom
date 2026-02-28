@@ -1,4 +1,5 @@
 import { connectSessionSocket, parsePolyline, postJson } from "./map_editor_core.js";
+import { initChat } from "./chat.js";
 
 const root = document.getElementById("session-runtime");
 
@@ -171,7 +172,7 @@ if (root) {
                 statusEl.textContent = statusLabels[message.status] || message.status;
             }
         } else if (["session_phase_changed", "participant_role_updated", "vehicle_state_changed"].includes(message.type)) {
-            refreshState().catch(() => {});
+            refreshState().catch(() => { });
         } else if (message.type === "event_created" && eventsEl) {
             const row = document.createElement("div");
             row.className = "pill subtle";
@@ -179,4 +180,6 @@ if (root) {
             eventsEl.prepend(row);
         }
     });
+
+    initChat(sessionCode, csrfToken, root.dataset.role || "");
 }

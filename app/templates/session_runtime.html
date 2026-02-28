@@ -102,18 +102,21 @@
     </section>
 
     <section class="panel compact stack gap-s">
-        <h2>Голос / PTT</h2>
-        <div class="row gap-s">
-            <select id="voice-channel">
-                <option value="dispatch_net">Канал диспетчера</option>
-                <option value="command_net">Командный канал</option>
-                <option value="ops_net">Оперативный канал</option>
+        <div class="row spread align-center">
+            <h2>Чат</h2>
+            <select id="chat-thread-select" class="button">
+                <!-- Опции будут добавлены через JS в зависимости от роли -->
             </select>
-            <button class="button" type="button" id="ptt-btn">PTT</button>
-            <span class="pill subtle" id="ptt-status">PTT пока в тестовом режиме</span>
+        </div>
+        <div id="chat-messages" class="stack gap-xs" style="height: 250px; overflow-y: auto; background: var(--surface); padding: var(--space-s); border-radius: 4px;">
+            <!-- Сообщения -->
+        </div>
+        <div class="row gap-s">
+            <input type="text" id="chat-input" class="grow" placeholder="Введите сообщение..." disabled>
+            <button class="button" type="button" id="chat-send-btn" disabled>Отправить</button>
         </div>
     </section>
 </section>
 <script type="module" src="{{ url_for('static', path='js/session_runtime.js') }}"></script>
-<script type="module" src="{{ url_for('static', path='js/voice_ptt.js') }}"></script>
+<script type="module" src="{{ url_for('static', path='js/chat.js') }}"></script>
 {% endblock %}

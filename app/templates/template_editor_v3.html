@@ -3,25 +3,18 @@
 {% block title %}Редактор карты | ТП Тренажер{% endblock %}
 
 {% block content %}
-<section class="editor-shell" id="editor-root"
-    data-map-id="{{ map_document.id }}"
-    data-map-kind="{{ map_document.kind }}"
-    data-role="template_editor"
-    data-csrf-token=""
-    data-mode="template"
+<section class="editor-shell" id="editor-root" data-map-id="{{ map_document.id }}"
+    data-map-kind="{{ map_document.kind }}" data-role="template_editor" data-csrf-token="" data-mode="template"
     data-api-map-base="/api/templates/{{ map_document.id }}"
     data-api-add-level="/api/templates/{{ map_document.id }}/levels"
-    data-export-url="/api/templates/{{ map_document.id }}/export"
-    data-import-url="/api/templates/import"
-    data-editor-url-pattern="/templates/{id}/edit"
-    data-ws-enabled="false"
-    data-can-edit="true"
-    data-can-reorder="false"
-    data-can-create-object-map="false">
+    data-export-url="/api/templates/{{ map_document.id }}/export" data-import-url="/api/templates/import"
+    data-editor-url-pattern="/templates/{id}/edit" data-ws-enabled="false" data-can-edit="true" data-can-reorder="false"
+    data-can-create-object-map="{{ 'true' if map_document.kind == 'area' else 'false' }}">
     <aside class="editor-sidebar">
         <div class="panel compact stack gap-s">
             <h2>{{ map_document.title }}</h2>
-            <p class="muted">{{ "местность" if map_document.kind == "area" else "объект" }} | {{ map_document.width }}x{{ map_document.height }} | v<span id="map-version">{{ map_document.version }}</span></p>
+            <p class="muted">{{ "местность" if map_document.kind == "area" else "объект" }} | {{ map_document.width
+                }}x{{ map_document.height }} | v<span id="map-version">{{ map_document.version }}</span></p>
         </div>
         <div class="panel compact stack gap-s">
             <h3>Инструменты</h3>
@@ -78,6 +71,10 @@
                 <button class="button" type="button" id="snapshot-btn">Снимок</button>
                 <a class="button" id="export-btn" href="/api/templates/{{ map_document.id }}/export">Экспорт</a>
             </div>
+            {% if map_document.kind == "area" %}
+            <button class="button primary" type="button" id="create-object-map-btn" disabled>Сделать объект из
+                зоны</button>
+            {% endif %}
             <label class="field">
                 <span>Импорт JSON</span>
                 <input type="file" id="import-json" accept="application/json">

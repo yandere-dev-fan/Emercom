@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.api.schemas import ImportMapRequest, MapCreateRequest, MapMetadataUpdateRequest, MapPatchRequest, SnapshotCreateRequest
+from app.api.schemas import ImportMapRequest, MapCreateRequest, MapMetadataUpdateRequest, MapPatchRequest, SnapshotCreateRequest, ObjectMapCreateRequest
 from app.db.session import get_db
 from app.domain.session_maps_v2 import serialize_map_for_role
 from app.domain.services import list_snapshots
@@ -20,6 +20,7 @@ from app.domain.template_maps_v2 import (
     import_template_map,
     list_template_maps,
     update_template_map_metadata,
+    create_template_object_map_from_existing,
 )
 
 
@@ -146,3 +147,21 @@ async def post_template_import(
 ) -> dict[str, object]:
     map_document = import_template_map(db, payload=payload)
     return {"ok": True, "map_id": map_document.id}
+
+
+@router.post("/{map_id}/object-maps")
+async def post_template_object_template(
+    map_id: str,
+    db: DbSession,
+    payload: Annotated[ObjectMapCreateRequest | None, Body()] = None,
+) -> dict[str, object]:
+    map_document = get_template_map(db, map_id)
+    if map_document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Карта не найдена.")
+    object_map = create_template_object_map_from_existing(
+        db,
+        parent_map=map_document,
+        source_level_id=payload.source_level_id if payload else None,
+        source_index=payload.source_index if payload else None,
+    )
+    return {"ok": True, "map_id": object_map.id}

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 
 
-AREA_LAYER_ORDER = ["ground", "objects", "buildings", "markers"]
+AREA_LAYER_ORDER = ["ground", "objects", "buildings", "effects_fire", "effects_smoke", "markers"]
 OBJECT_LAYER_ORDER = ["floor", "walls", "openings", "interior", "effects_fire", "effects_smoke", "markers"]
 DEFAULT_AREA_LEVELS = [("AREA_MAIN", "Общая карта", 0)]
 DEFAULT_OBJECT_LEVELS = [("F1", "Этаж 1", 1)]
@@ -52,6 +52,16 @@ AREA_TILE_CATALOG: dict[str, list[TileDefinition]] = {
         TileDefinition(2, "Точка техники", "#10b981", "Тактика"),
         TileDefinition(3, "Точка подачи", "#0ea5e9", "Тактика"),
         TileDefinition(4, "Зона эвакуации", "#38bdf8", "Тактика"),
+    ],
+    "effects_fire": [
+        TileDefinition(0, "Пусто", "transparent", "Огонь"),
+        TileDefinition(1, "Горит", "#f97316", "Огонь"),
+        TileDefinition(2, "Очаг", "#dc2626", "Огонь"),
+    ],
+    "effects_smoke": [
+        TileDefinition(0, "Пусто", "transparent", "Дым"),
+        TileDefinition(1, "Легкий дым", "rgba(156,163,175,0.35)", "Дым"),
+        TileDefinition(2, "Плотный дым", "rgba(75,85,99,0.55)", "Дым"),
     ],
 }
 
@@ -118,6 +128,12 @@ IGNITION_THRESHOLDS: dict[tuple[str, int], int] = {
 }
 
 
+def ignition_threshold(layer_key: str, code: int) -> int:
+    if code == 0:
+        return 9999
+    return IGNITION_THRESHOLDS.get((layer_key, code), 9999)
+
+
 def object_level_code(floor_number: int) -> str:
     return f"F{floor_number}"
 
@@ -140,7 +156,10 @@ def tile_catalog_for_kind(kind: str) -> dict[str, list[TileDefinition]]:
 
 def serialize_catalog(kind: str | None = None) -> dict[str, list[dict[str, object]]]:
     catalog = {**AREA_TILE_CATALOG, **OBJECT_TILE_CATALOG} if kind is None else tile_catalog_for_kind(kind)
-    return {layer_key: [asdict(item) for item in items] for layer_key, items in catalog.items()}
+    return {
+        layer_key: [{"code": item.code, "label": item.label, "color": item.color, "category": item.category} for item in items]
+        for layer_key, items in catalog.items()
+    }
 
 
 def max_code_for_layer(layer_key: str, kind: str | None = None) -> int:
