@@ -1,0 +1,19 @@
+<section class="panel compact stack gap-s">
+    <h2>Панель диспетчера</h2>
+    <label class="field">
+        <span>Индекс предполагаемого очага</span>
+        <input type="number" min="0" value="{{ session.scenario_state.dispatcher_guess_index or 0 }}" id="dispatcher-guess-index">
+    </label>
+    <button class="button primary" type="button" id="dispatcher-mark-btn">Поставить метку</button>
+    <div class="grid-two">
+        <label class="field">
+            <span>Обычные машины</span>
+            <input type="number" min="0" value="1" id="dispatch-count-fire-engine">
+        </label>
+        <label class="field">
+            <span>Машины с лестницей</span>
+            <input type="number" min="0" value="0" id="dispatch-count-ladder-engine">
+        </label>
+    </div>
+    <button class="button" type="button" id="dispatch-order-btn">Отправить технику</button>
+</section>

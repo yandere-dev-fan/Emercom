@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ТП Тренажер{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/app.css') }}">
+</head>
+
+<body>
+    <header class="site-header">
+        <a class="brand" href="{{ url_for('landing') }}">ТП Тренажер</a>
+        <nav class="top-nav">
+            <a class="button" href="{{ url_for('template_library_page') }}">Карты</a>
+            {% if auth_session %}
+            <span class="pill">{{ {"instructor": "СОЗДАТЕЛЬ", "dispatcher": "ДИСПЕТЧЕР", "rtp": "РТП", "observer": "НАБЛЮДАТЕЛЬ", "waiting": "ОЖИДАНИЕ"}.get(auth_session.role, auth_session.role|upper) }}</span>
+            {% if current_session_code %}
+            <a class="button" href="{{ url_for('session_page', session_code=current_session_code) }}">Текущая сессия</a>
+            {% endif %}
+            {% endif %}
+        </nav>
+    </header>
+    <main class="page-shell">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+
+</html>

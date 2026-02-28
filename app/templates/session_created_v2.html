@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Сессия создана | ТП Тренажер{% endblock %}
+
+{% block content %}
+<section class="panel stack gap-m">
+    <div>
+        <p class="eyebrow">Сессия создана</p>
+        <h1>Ключ для участников</h1>
+        <p class="lead">Относитесь к этому ключу как к паролю. Любой, у кого он есть, сможет войти в эту сессию.</p>
+    </div>
+    <div class="key-box">
+        <span class="key-label">Код сессии</span>
+        <code>{{ session.session_code }}</code>
+    </div>
+    <div class="key-box">
+        <span class="key-label">Ключ входа</span>
+        <code id="join-key">{{ join_key }}</code>
+    </div>
+    <div class="button-row">
+        <button class="button" type="button" id="copy-key-btn">Скопировать</button>
+        <button class="button" type="button" id="show-qr-btn">Показать QR</button>
+        <button class="button" type="button" id="download-key-btn">Скачать .txt</button>
+        <a class="button primary" href="{{ url_for('session_page', session_code=session.session_code) }}">Открыть сессию</a>
+    </div>
+    <p class="warning-note">Не публикуйте этот ключ в открытом доступе.</p>
+    <div class="qr-panel hidden" id="qr-panel">
+        {% if join_qr_data_uri %}
+        <img src="{{ join_qr_data_uri }}" alt="QR-код ключа" class="qr-image">
+        {% else %}
+        <p class="muted">Для предпросмотра QR нужен установленный пакет `qrcode` в окружении.</p>
+        {% endif %}
+        <p class="muted">Ссылка в QR: <code>{{ join_link }}</code></p>
+    </div>
+</section>
+<script>
+(() => {
+    const key = document.getElementById("join-key").textContent.trim();
+    const qrPanel = document.getElementById("qr-panel");
+    document.getElementById("copy-key-btn").addEventListener("click", async () => {
+        await navigator.clipboard.writeText(key);
+    });
+    document.getElementById("show-qr-btn").addEventListener("click", () => {
+        qrPanel.classList.toggle("hidden");
+    });
+    document.getElementById("download-key-btn").addEventListener("click", () => {
+        const blob = new Blob([`Сессия: {{ session.session_code }}\nКлюч входа: ${key}\nСсылка для входа: {{ join_link }}\n`], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "tp-trenazher-klyuch-sessii.txt";
+        link.click();
+        URL.revokeObjectURL(url);
+    });
+})();
+</script>
+{% endblock %}

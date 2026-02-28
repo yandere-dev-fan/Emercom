@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Сессия создана | TP Simulator{% endblock %}
+
+{% block content %}
+<section class="panel stack gap-m">
+    <div>
+        <p class="eyebrow">Сессия создана</p>
+        <h1>Ключ для входа участников</h1>
+        <p class="lead">Ключ как пароль: любой, кто его знает, сможет войти в сессию.</p>
+    </div>
+    <div class="key-box">
+        <span class="key-label">Session Code</span>
+        <code>{{ session.session_code }}</code>
+    </div>
+    <div class="key-box">
+        <span class="key-label">Join Key</span>
+        <code id="join-key">{{ join_key }}</code>
+    </div>
+    <div class="button-row">
+        <button class="button" type="button" id="copy-key-btn">Скопировать</button>
+        <button class="button" type="button" id="download-key-btn">Скачать .txt</button>
+        <a class="button primary" href="{{ url_for('session_page', session_code=session.session_code) }}">Перейти в сессию</a>
+    </div>
+    <p class="warning-note">Не отправляй этот ключ в открытый доступ.</p>
+</section>
+<script>
+(() => {
+    const key = document.getElementById("join-key").textContent.trim();
+    document.getElementById("copy-key-btn").addEventListener("click", async () => {
+        await navigator.clipboard.writeText(key);
+    });
+    document.getElementById("download-key-btn").addEventListener("click", () => {
+        const blob = new Blob([`Session: {{ session.session_code }}\nJoin key: ${key}\n`], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "tp-simulator-session-key.txt";
+        link.click();
+        URL.revokeObjectURL(url);
+    });
+})();
+</script>
+{% endblock %}

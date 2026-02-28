@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+trainer.db
+trainer.db-journal
+pytest-cache-files-*/

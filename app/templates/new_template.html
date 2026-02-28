@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Новая карта | ТП Тренажер{% endblock %}
+
+{% block content %}
+<section class="panel stack gap-m">
+    <div>
+        <p class="eyebrow">Создание карты</p>
+        <h1>Создать карту</h1>
+        <p class="lead">Эта карта сохраняется как шаблон и может использоваться в разных сессиях.</p>
+    </div>
+    {% if error %}
+    <div class="error-box">{{ error }}</div>
+    {% endif %}
+    <form method="post" action="/templates" class="stack gap-m">
+        <label class="field">
+            <span>Название</span>
+            <input type="text" name="title" required maxlength="128">
+        </label>
+        <div class="grid-two">
+            <label class="field">
+                <span>Тип карты</span>
+                <select name="kind">
+                    <option value="area">Местность</option>
+                    <option value="object">Объект</option>
+                </select>
+            </label>
+            <label class="field">
+                <span>Категория</span>
+                <select name="map_type">
+                    <option value="city">Город</option>
+                    <option value="private">Частный сектор</option>
+                    <option value="industrial">Промышленная</option>
+                    <option value="mixed">Смешанная</option>
+                </select>
+            </label>
+        </div>
+        <div class="grid-three">
+            <label class="field">
+                <span>Ширина</span>
+                <input type="number" name="width" min="1" max="256" value="48">
+            </label>
+            <label class="field">
+                <span>Высота</span>
+                <input type="number" name="height" min="1" max="256" value="48">
+            </label>
+            <label class="field">
+                <span>Размер клетки (px)</span>
+                <input type="number" name="cell_size_px" min="8" max="64" value="16">
+            </label>
+        </div>
+        <label class="field">
+            <span>Метров на клетку</span>
+            <input type="number" name="meters_per_cell" min="1" max="1000" value="5">
+        </label>
+        <div class="button-row">
+            <button class="button primary xl" type="submit">Создать карту</button>
+            <a class="button" href="{{ url_for('template_library_page') }}">Отмена</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

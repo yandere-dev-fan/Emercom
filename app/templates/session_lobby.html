@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Лобби {{ session.session_code }} | ТП Тренажер{% endblock %}
+
+{% block content %}
+<section class="panel stack gap-m" id="session-lobby" data-session-code="{{ session.session_code }}"
+    data-csrf-token="{{ auth_session.csrf_token }}" data-role="{{ auth_session.role }}">
+    <div class="row spread align-center">
+        <div>
+            <p class="eyebrow">Лобби сессии</p>
+            <h1>{{ session.session_code }}</h1>
+            <p class="lead">Все новые участники заходят в статусе <code>waiting</code>. Создатель сессии должен назначить роли перед запуском тренировки.</p>
+        </div>
+        <form method="post" action="{{ url_for('leave_session', session_code=session.session_code) }}">
+            <input type="hidden" name="csrf_token" value="{{ auth_session.csrf_token }}">
+            <button class="button" type="submit">Выйти</button>
+        </form>
+    </div>
+
+    <div class="grid-two">
+        <div class="panel compact stack gap-s">
+            <h2>Участники</h2>
+            <div class="stack gap-s">
+                {% for participant in session.participants|sort(attribute='created_at') %}
+                <div class="participant-card">
+                    <div class="row spread align-center">
+                        <strong>{{ participant.display_name or participant.id[:8] }}</strong>
+                        <span class="pill subtle">{{ {"instructor": "создатель", "dispatcher": "диспетчер", "rtp": "РТП", "observer": "наблюдатель", "waiting": "ожидание"}.get(participant.role, participant.role) }}</span>
+                    </div>
+                    {% if auth_session.role in ["instructor", "admin"] and participant.role != "instructor" %}
+                    <div class="button-row role-actions">
+                        <button type="button" class="button" data-role-action data-participant-id="{{ participant.id }}" data-role="waiting">Ожидание</button>
+                        <button type="button" class="button" data-role-action data-participant-id="{{ participant.id }}" data-role="dispatcher">Диспетчер</button>
+                        <button type="button" class="button" data-role-action data-participant-id="{{ participant.id }}" data-role="rtp">RTP</button>
+                        <button type="button" class="button" data-role-action data-participant-id="{{ participant.id }}" data-role="observer">Наблюдатель</button>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="panel compact stack gap-s">
+            <h2>Сводка сценария</h2>
+            <div class="key-box">
+                <span class="key-label">Статус</span>
+                <code>{{ {"setup": "подготовка", "dispatch_call": "вызов", "enroute": "в пути", "recon": "разведка", "tactical": "тактика", "contained": "локализация", "finished": "завершено"}.get(state_payload.status, state_payload.status) }}</code>
+            </div>
+            <div class="key-box">
+                <span class="key-label">Лимит мест</span>
+                <code>{{ state_payload.participants|length }} / {{ state_payload.seat_limit }}</code>
+            </div>
+            <div class="stack gap-xs">
+                <span class="muted">Карт местности: {{ state_payload.runtime_maps.area|length }}</span>
+                <span class="muted">Карт объекта: {{ state_payload.runtime_maps.object|length }}</span>
+                <span class="muted">Единиц техники: {{ state_payload.vehicles|length }}</span>
+            </div>
+            {% if auth_session.role in ["instructor", "admin"] %}
+            <button class="button primary" type="button" id="start-drill-btn">Запустить тренировку</button>
+            {% endif %}
+        </div>
+    </div>
+</section>
+<script type="module" src="{{ url_for('static', path='js/session_lobby.js') }}"></script>
+{% endblock %}

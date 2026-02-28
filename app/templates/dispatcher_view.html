@@ -1,0 +1,18 @@
+<section class="panel compact stack gap-s">
+    <h2>Панель диспетчера</h2>
+    <label class="field">
+        <span>Индекс предполагаемого очага</span>
+        <input type="number" min="0" value="{{ session.scenario_state.dispatcher_guess_index or 0 }}" id="dispatcher-guess-index">
+    </label>
+    <button class="button primary" type="button" id="dispatcher-mark-btn">Отметить предполагаемый очаг</button>
+    <div class="panel compact stack gap-s">
+        <h3>Отправка техники</h3>
+        {% for vehicle_type in session.scenario_state.available_vehicles_json.get('enabled_vehicle_types', []) %}
+        <label class="checkbox-row">
+            <input type="checkbox" class="dispatch-vehicle-type" value="{{ vehicle_type }}" checked>
+            <span>{{ vehicle_type }}</span>
+        </label>
+        {% endfor %}
+        <button class="button" type="button" id="dispatch-order-btn">Отправить выбранную технику</button>
+    </div>
+</section>

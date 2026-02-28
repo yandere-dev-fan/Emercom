@@ -1,0 +1,110 @@
+{% extends "base_v2.html" %}
+
+{% block title %}Сессия {{ session.session_code }} | ТП Тренажер{% endblock %}
+
+{% block content %}
+<section class="panel stack gap-m" id="session-runtime" data-session-code="{{ session.session_code }}" data-csrf-token="{{ auth_session.csrf_token }}" data-role="{{ auth_session.role }}">
+    <div class="row spread align-center">
+        <div>
+            <p class="eyebrow">Ход тренировки</p>
+            <h1>{{ session.session_code }}</h1>
+            <p class="lead">Текущая роль: <strong>{{ {"instructor": "создатель", "dispatcher": "диспетчер", "rtp": "РТП", "observer": "наблюдатель", "waiting": "ожидание"}.get(auth_session.role, auth_session.role) }}</strong>.</p>
+        </div>
+        <form method="post" action="{{ url_for('leave_session', session_code=session.session_code) }}">
+            <input type="hidden" name="csrf_token" value="{{ auth_session.csrf_token }}">
+            <button class="button" type="submit">Выйти</button>
+        </form>
+    </div>
+    <div class="grid-two">
+        <div class="key-box">
+            <span class="key-label">Статус</span>
+            <code id="runtime-status">{{ {"setup": "подготовка", "dispatch_call": "вызов", "enroute": "в пути", "tactical": "объект", "contained": "локализация", "finished": "завершено"}.get(state_payload.status, state_payload.status) }}</code>
+        </div>
+        <div class="key-box">
+            <span class="key-label">Прошло</span>
+            <code id="runtime-elapsed">{{ state_payload.time_elapsed_minutes }} мин</code>
+        </div>
+    </div>
+    <section class="stack gap-s">
+        <h2>Рабочие карты</h2>
+        <div class="grid-cards">
+            {% for item in state_payload.runtime_maps.area %}
+            <a class="map-card" href="{{ url_for('map_editor_page', map_id=item.id) }}">
+                <strong>{{ item.title }}</strong>
+                <span>Местность</span>
+                <span>v{{ item.version }}</span>
+            </a>
+            {% endfor %}
+            {% for item in state_payload.runtime_maps.object %}
+            <a class="map-card" href="{{ url_for('map_editor_page', map_id=item.id) }}">
+                <strong>{{ item.title }}</strong>
+                <span>Объект</span>
+                <span>v{{ item.version }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    <div class="grid-two">
+        <div class="panel compact stack gap-s">
+            <h2>Участники</h2>
+            <div id="runtime-participants" class="stack gap-xs">
+                {% for participant in state_payload.participants %}
+                <div class="row spread align-center">
+                    <span>{{ participant.display_name or participant.id[:8] }}</span>
+                    <span class="pill subtle">{{ {"instructor": "создатель", "dispatcher": "диспетчер", "rtp": "РТП", "observer": "наблюдатель", "waiting": "ожидание"}.get(participant.role, participant.role) }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="panel compact stack gap-s">
+            <h2>Техника</h2>
+            <div id="runtime-vehicles" class="stack gap-xs">
+                {% for vehicle in state_payload.vehicles %}
+                <div class="row spread align-center">
+                    <span>{{ vehicle.display_name }}</span>
+                    <span class="pill subtle">{{ vehicle.status }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% if auth_session.role in ["instructor", "admin"] %}
+        {% include "instructor_view_v2.html" %}
+    {% elif auth_session.role == "dispatcher" %}
+        {% include "dispatcher_view_v2.html" %}
+    {% elif auth_session.role == "rtp" %}
+        {% include "rtp_view_v2.html" %}
+    {% else %}
+    <section class="panel compact stack gap-s">
+        <h2>Режим наблюдателя</h2>
+        <p class="muted">Наблюдатель только следит за ходом тренировки.</p>
+    </section>
+    {% endif %}
+    <section class="panel compact stack gap-s">
+        <h2>Журнал событий</h2>
+        <div id="runtime-events" class="stack gap-xs">
+            {% for item in (session.scenario_state.runtime_state_json.get('events', []) if session.scenario_state else []) %}
+            <div class="pill subtle">{{ item.get('event_type', 'event') }}</div>
+            {% else %}
+            <div class="pill subtle">Событий пока нет.</div>
+            {% endfor %}
+        </div>
+    </section>
+    <section class="panel compact stack gap-s">
+        <div class="row spread align-center">
+            <h2>Чат</h2>
+            <select id="chat-thread">
+                {% for thread in state_payload.chat.threads %}
+                <option value="{{ thread }}">{{ thread }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div id="chat-messages" class="stack gap-xs"></div>
+        <div class="row gap-s">
+            <input type="text" id="chat-body" placeholder="Сообщение">
+            <button class="button" type="button" id="chat-send-btn">Отправить</button>
+        </div>
+    </section>
+</section>
+<script type="module" src="{{ url_for('static', path='js/session_runtime_v2.js') }}"></script>
+{% endblock %}

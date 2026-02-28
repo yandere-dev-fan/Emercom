@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Сессия {{ session.session_code }} | TP Simulator{% endblock %}
+
+{% block content %}
+<section class="panel stack gap-m">
+    <div class="row spread align-center">
+        <div>
+            <p class="eyebrow">Учебная сессия</p>
+            <h1>{{ session.session_code }}</h1>
+            <p class="lead">Роль: {{ auth_session.role }}. Редактирование карт доступно только администратору.</p>
+        </div>
+        <form method="post" action="{{ url_for('leave_session', session_code=session.session_code) }}">
+            <input type="hidden" name="csrf_token" value="{{ auth_session.csrf_token }}">
+            <button class="button" type="submit">Выйти</button>
+        </form>
+    </div>
+
+    {% if auth_session.role == "admin" %}
+    <div class="button-row">
+        <a class="button primary" href="/sessions/{{ session.session_code }}/maps/new">Создать карту</a>
+    </div>
+    {% endif %}
+
+    <div class="map-groups">
+        {% for kind, maps in grouped_maps.items() %}
+        <section class="stack gap-s">
+            <h2>{{ "Общие карты" if kind == "area" else "Карты объектов" }}</h2>
+            <div class="grid-cards">
+                {% for item in maps %}
+                <a class="map-card" href="{{ url_for('map_editor_page', map_id=item.id) }}">
+                    <strong>{{ item.title }}</strong>
+                    <span>{{ item.width }}×{{ item.height }}</span>
+                    <span>v{{ item.version }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </section>
+        {% else %}
+        <p class="muted">Пока нет карт. Создай первую карту для этой сессии.</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

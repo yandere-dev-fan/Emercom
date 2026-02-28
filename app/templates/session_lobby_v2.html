@@ -1,0 +1,43 @@
+{% extends "base_v2.html" %}
+
+{% block title %}Лобби {{ session.session_code }} | ТП Тренажер{% endblock %}
+
+{% block content %}
+<section class="panel stack gap-m" id="session-lobby" data-session-code="{{ session.session_code }}" data-csrf-token="{{ auth_session.csrf_token }}">
+    <div class="row spread align-center">
+        <div>
+            <p class="eyebrow">Подготовка</p>
+            <h1>{{ session.session_code }}</h1>
+            <p class="lead">Назначьте диспетчера и РТП, затем запускайте тренировку.</p>
+        </div>
+        <form method="post" action="{{ url_for('leave_session', session_code=session.session_code) }}">
+            <input type="hidden" name="csrf_token" value="{{ auth_session.csrf_token }}">
+            <button class="button" type="submit">Выйти</button>
+        </form>
+    </div>
+    <div class="panel compact stack gap-s">
+        <h2>Участники</h2>
+        <div id="lobby-participants" class="stack gap-xs">
+            {% for participant in state_payload.participants %}
+            <div class="row spread align-center">
+                <span>{{ participant.display_name or participant.id[:8] }}</span>
+                <div class="row gap-s align-center">
+                    <span class="pill subtle">{{ participant.role }}</span>
+                    {% if auth_session.role in ["instructor", "admin"] and participant.role != "instructor" %}
+                    <button class="button" type="button" data-role-action data-participant-id="{{ participant.id }}" data-role="dispatcher">Дисп</button>
+                    <button class="button" type="button" data-role-action data-participant-id="{{ participant.id }}" data-role="rtp">РТП</button>
+                    <button class="button" type="button" data-role-action data-participant-id="{{ participant.id }}" data-role="observer">Набл</button>
+                    <button class="button" type="button" data-role-action data-participant-id="{{ participant.id }}" data-role="waiting">Сброс</button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% if auth_session.role in ["instructor", "admin"] %}
+        <p class="muted">Используйте API назначения ролей из текущего интерфейса или отдельной вкладки. Кнопка запуска ниже активирует runtime.</p>
+        <button class="button primary" type="button" id="start-drill-btn">Запустить тренировку</button>
+        {% endif %}
+    </div>
+</section>
+<script type="module" src="{{ url_for('static', path='js/session_lobby.js') }}"></script>
+{% endblock %}
