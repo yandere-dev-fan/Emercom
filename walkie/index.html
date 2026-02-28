@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WALKIE</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Oswald:wght@300;400;600&display=swap');
+
+  :root {
+    --bg:       #0d0d0d;
+    --surface:  #161616;
+    --metal1:   #2a2a2a;
+    --metal2:   #1e1e1e;
+    --accent:   #c8a84b;
+    --green:    #39ff6e;
+    --red:      #ff3939;
+    --orange:   #ff8c00;
+    --text:     #e0d5c0;
+    --muted:    #555;
+    --radius:   14px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ─── Scanline overlay ─── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,.15) 2px,
+      rgba(0,0,0,.15) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ─── SCREENS ─── */
+  .screen {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    gap: 0;
+    transition: opacity .35s, transform .35s;
+  }
+  .screen.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(.96);
+  }
+
+  /* ════════════ LANDING ════════════ */
+  #landing {
+    gap: 48px;
+  }
+
+  .brand {
+    text-align: center;
+    letter-spacing: .3em;
+  }
+  .brand h1 {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    font-size: clamp(2.5rem, 8vw, 5rem);
+    color: var(--accent);
+    letter-spacing: .25em;
+    text-shadow: 0 0 40px rgba(200,168,75,.4);
+  }
+  .brand p {
+    font-size: .7rem;
+    color: var(--muted);
+    letter-spacing: .4em;
+    margin-top: 4px;
+  }
+
+  .landing-btns {
+    display: flex;
+    gap: 16px;
+  }
+
+  .btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: .8rem;
+    letter-spacing: .15em;
+    padding: 14px 32px;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    cursor: pointer;
+    transition: background .2s, color .2s;
+    text-transform: uppercase;
+  }
+  .btn:hover { background: var(--accent); color: var(--bg); }
+  .btn.secondary { border-color: var(--muted); color: var(--muted); }
+  .btn.secondary:hover { background: var(--muted); color: var(--bg); }
+
+  /* ─── Join form ─── */
+  .join-row {
+    display: flex; gap: 8px;
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: opacity .3s, max-height .3s;
+  }
+  .join-row.visible {
+    opacity: 1;
+    max-height: 60px;
+  }
+  .join-row input {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: .9rem;
+    letter-spacing: .2em;
+    background: var(--surface);
+    border: 1px solid var(--muted);
+    color: var(--text);
+    padding: 12px 16px;
+    width: 130px;
+    text-transform: uppercase;
+    text-align: center;
+    outline: none;
+  }
+  .join-row input:focus { border-color: var(--accent); }
+
+  .error-msg {
+    font-size: .7rem;
+    color: var(--red);
+    letter-spacing: .1em;
+    height: 16px;
+    text-align: center;
+  }
+
+  /* ════════════ CODE SCREEN ════════════ */
+  #code-screen {
+    gap: 24px;
+    text-align: center;
+  }
+  .code-label {
+    font-size: .6rem;
+    letter-spacing: .4em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .code-value {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 300;
+    font-size: clamp(3rem, 12vw, 6rem);
+    letter-spacing: .5em;
+    color: var(--accent);
+    text-shadow: 0 0 30px rgba(200,168,75,.5);
+  }
+  .code-timer {
+    font-size: .7rem;
+    color: var(--muted);
+    letter-spacing: .2em;
+  }
+  .code-timer span { color: var(--orange); }
+  .code-hint {
+    font-size: .65rem;
+    color: var(--muted);
+    letter-spacing: .1em;
+  }
+
+  /* ════════════ WALKIE SCREEN ════════════ */
+  #walkie-screen {
+    gap: 0;
+    perspective: 800px;
+  }
+
+  /* ─── The radio body ─── */
+  .radio-wrap {
+    position: relative;
+    transform-origin: center bottom;
+    transition: transform .15s cubic-bezier(.34,1.56,.64,1);
+    will-change: transform;
+  }
+  .radio-wrap.talking {
+    transform: rotate(-8deg) translateX(-10px);
+  }
+
+  .radio {
+    width: 140px;
+    background: linear-gradient(160deg, #2e2e2e 0%, #1a1a1a 50%, #252525 100%);
+    border-radius: 16px 16px 22px 22px;
+    padding: 0;
+    position: relative;
+    box-shadow:
+      4px 6px 20px rgba(0,0,0,.8),
+      inset 1px 1px 0 rgba(255,255,255,.06),
+      inset -1px -1px 0 rgba(0,0,0,.4);
+    border: 1px solid #333;
+  }
+
+  /* Antenna */
+  .radio::before {
+    content: '';
+    position: absolute;
+    top: -48px; left: 22px;
+    width: 7px; height: 52px;
+    background: linear-gradient(to bottom, #3a3a3a, #222);
+    border-radius: 4px 4px 0 0;
+    border: 1px solid #444;
+    border-bottom: none;
+  }
+
+  /* Top section */
+  .radio-top {
+    padding: 14px 14px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-bottom: 1px solid #111;
+  }
+
+  /* LED */
+  .led-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .led {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    flex-shrink: 0;
+    transition: background .1s, box-shadow .1s;
+  }
+  .led.free  { background: var(--green);  box-shadow: 0 0 8px var(--green), 0 0 20px rgba(57,255,110,.3); }
+  .led.busy  { background: var(--red);    box-shadow: 0 0 8px var(--red),   0 0 20px rgba(255,57,57,.3); }
+  .led.idle  { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
+  .led-label {
+    font-size: .5rem;
+    letter-spacing: .2em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  /* Fake display */
+  .radio-display {
+    background: #0a120a;
+    border: 1px solid #1a2a1a;
+    border-radius: 4px;
+    padding: 5px 7px;
+    font-size: .5rem;
+    letter-spacing: .15em;
+    color: #3a6640;
+    text-align: center;
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 26px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    line-height: 1.4;
+  }
+  .radio-display .ch-code { color: #5a9960; font-size: .6rem; }
+
+  /* Speaker grille */
+  .radio-speaker {
+    margin: 0 14px;
+    padding: 8px 0;
+  }
+  .grille {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .grille-line {
+    height: 2px;
+    background: #111;
+    border-radius: 1px;
+    border-top: 1px solid #0a0a0a;
+    border-bottom: 1px solid #2a2a2a;
+  }
+
+  /* Middle band */
+  .radio-band {
+    height: 8px;
+    background: linear-gradient(90deg, #1a1a1a, #2a2825, #1a1a1a);
+    border-top: 1px solid #111;
+    border-bottom: 1px solid #111;
+    margin: 0 0 2px;
+  }
+
+  /* PTT button */
+  .radio-bottom {
+    padding: 10px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ptt-btn {
+    width: 100%;
+    padding: 10px 0;
+    border-radius: 6px;
+    background: linear-gradient(180deg, #2e2e2e 0%, #1e1e1e 100%);
+    border: 1px solid #444;
+    border-bottom: 3px solid #111;
+    cursor: pointer;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: .55rem;
+    letter-spacing: .25em;
+    color: #666;
+    text-transform: uppercase;
+    transition: all .08s;
+    text-align: center;
+    touch-action: none;
+  }
+  .ptt-btn:active,
+  .ptt-btn.pressed {
+    background: linear-gradient(180deg, #1a1a1a 0%, #252525 100%);
+    border-bottom-width: 1px;
+    transform: translateY(1px);
+    color: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 10px rgba(200,168,75,.2);
+  }
+
+  /* Volume knob row */
+  .knob-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+  }
+  .knob {
+    width: 18px; height: 18px;
+    background: radial-gradient(circle at 35% 35%, #3a3a3a, #111);
+    border-radius: 50%;
+    border: 1px solid #444;
+    position: relative;
+  }
+  .knob::after {
+    content: '';
+    position: absolute;
+    top: 3px; left: 50%;
+    transform: translateX(-50%);
+    width: 2px; height: 5px;
+    background: #555;
+    border-radius: 1px;
+  }
+
+  /* ─── Status toast ─── */
+  .status-bar {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: .6rem;
+    letter-spacing: .2em;
+    color: var(--muted);
+    text-align: center;
+    text-transform: uppercase;
+    pointer-events: none;
+    transition: color .3s;
+  }
+  .status-bar.talking { color: var(--red); }
+  .status-bar.free    { color: var(--green); }
+
+  /* ─── Users badge ─── */
+  .users-badge {
+    position: fixed;
+    top: 20px; right: 20px;
+    font-size: .55rem;
+    letter-spacing: .2em;
+    color: var(--muted);
+  }
+  .users-badge span { color: var(--accent); }
+
+  /* ─── Leave btn ─── */
+  .leave-btn {
+    position: fixed;
+    top: 20px; left: 20px;
+    font-size: .55rem;
+    letter-spacing: .15em;
+    color: var(--muted);
+    cursor: pointer;
+    border: none;
+    background: none;
+    font-family: 'Share Tech Mono', monospace;
+    text-transform: uppercase;
+  }
+  .leave-btn:hover { color: var(--red); }
+
+  /* ─── Incoming audio animation ─── */
+  @keyframes rx-pulse {
+    0%,100% { opacity: 1; }
+    50%      { opacity: .4; }
+  }
+  .receiving .radio-display .ch-code {
+    animation: rx-pulse .5s ease-in-out infinite;
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════ LANDING ════════ -->
+<div class="screen" id="landing">
+  <div class="brand">
+    <h1>WALKIE</h1>
+    <p>push to talk · anywhere</p>
+  </div>
+
+  <div class="landing-btns">
+    <button class="btn" id="btn-create">CREATE CHANNEL</button>
+    <button class="btn secondary" id="btn-join-show">JOIN CHANNEL</button>
+  </div>
+
+  <div class="join-row" id="join-row">
+    <input id="join-input" placeholder="XXXXXX" maxlength="6" autocomplete="off" spellcheck="false">
+    <button class="btn" id="btn-join-go">JOIN</button>
+  </div>
+
+  <div class="error-msg" id="error-msg"></div>
+</div>
+
+<!-- ════════ CODE SCREEN ════════ -->
+<div class="screen hidden" id="code-screen">
+  <div class="code-label">channel code</div>
+  <div class="code-value" id="code-display">------</div>
+  <div class="code-timer">expires in <span id="timer-val">10:00</span></div>
+  <div class="code-hint">share this code · connecting…</div>
+</div>
+
+<!-- ════════ WALKIE SCREEN ════════ -->
+<div class="screen hidden" id="walkie-screen">
+  <button class="leave-btn" id="leave-btn">← LEAVE</button>
+  <div class="users-badge">USERS: <span id="user-count">1</span></div>
+
+  <div class="radio-wrap" id="radio-wrap">
+    <div class="radio">
+      <div class="radio-top">
+        <div class="led-row">
+          <div class="led idle" id="led"></div>
+          <div class="led-label" id="led-label">STANDBY</div>
+        </div>
+        <div class="radio-display" id="radio-display">
+          <div>CH</div>
+          <div class="ch-code" id="ch-code-display">------</div>
+        </div>
+      </div>
+
+      <div class="radio-speaker">
+        <div class="grille">
+          <div class="grille-line"></div>
+          <div class="grille-line"></div>
+          <div class="grille-line"></div>
+          <div class="grille-line"></div>
+          <div class="grille-line"></div>
+          <div class="grille-line"></div>
+        </div>
+      </div>
+
+      <div class="radio-band"></div>
+
+      <div class="radio-bottom">
+        <div class="knob-row">
+          <div class="knob"></div>
+          <div class="knob"></div>
+        </div>
+        <button class="ptt-btn" id="ptt-btn">PTT · SPACE</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-bar" id="status-bar">hold space to talk</div>
+</div>
+
+<!-- ─── Audio elements container ─── -->
+<div id="audio-container" style="display:none"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+// State
+// ════════════════════════════════════════════════════════════════
+let ws           = null;
+let myId         = null;
+let channelCode  = null;
+let localStream  = null;
+let isTalking    = false;
+let channelBusy  = false;
+let busyBy       = null;
+let timerInterval = null;
+let codeExpireTime = null;
+
+const peers = {}; // peer_id -> RTCPeerConnection
+
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' }
+];
+
+// ════════════════════════════════════════════════════════════════
+// UI helpers
+// ════════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+
+function showScreen(id) {
+  ['landing','code-screen','walkie-screen'].forEach(s => {
+    $(s).classList.toggle('hidden', s !== id);
+  });
+}
+
+function setError(msg) {
+  $('error-msg').textContent = msg;
+  setTimeout(() => { $('error-msg').textContent = ''; }, 3000);
+}
+
+function setLed(state) {
+  // state: 'idle' | 'free' | 'busy'
+  const led = $('led');
+  led.className = 'led ' + state;
+  const labels = { idle: 'STANDBY', free: 'TX · ON AIR', busy: 'RX · RECEIVING' };
+  $('led-label').textContent = labels[state] || 'STANDBY';
+}
+
+function setStatus(msg, cls = '') {
+  const el = $('status-bar');
+  el.textContent = msg;
+  el.className = 'status-bar ' + cls;
+}
+
+// ════════════════════════════════════════════════════════════════
+// Audio engine
+// ════════════════════════════════════════════════════════════════
+let audioCtx  = null;
+let micGain   = null;
+let rawStream = null;
+
+const PTT_DELAY_MS = 150;
+const NOISE_DUR    = 0.28;
+
+function makeDistortionCurve(amount = 40) {
+  const n = 256, curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = (i * 2) / n - 1;
+    curve[i] = ((Math.PI + amount) * x) / (Math.PI + amount * Math.abs(x));
+  }
+  return curve;
+}
+
+function buildRadioChain(source, ctx, outputNode) {
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass'; hp.frequency.value = 320; hp.Q.value = 0.7;
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass'; lp.frequency.value = 3200; lp.Q.value = 0.7;
+  const ws = ctx.createWaveShaper();
+  ws.curve = makeDistortionCurve(25); ws.oversample = '2x';
+  const outGain = ctx.createGain();
+  outGain.gain.value = 1.1;
+  source.connect(hp); hp.connect(lp); lp.connect(ws); ws.connect(outGain); outGain.connect(outputNode);
+}
+
+function playNoiseBurst(volume = 0.35, duration = NOISE_DUR) {
+  if (!audioCtx) return;
+  const ctx = audioCtx;
+  const bufLen = Math.ceil(ctx.sampleRate * duration);
+  const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1400; bp.Q.value = 0.4;
+  const gain = ctx.createGain(); const now = ctx.currentTime;
+  gain.gain.setValueAtTime(volume, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+  src.connect(bp); bp.connect(gain); gain.connect(ctx.destination);
+  src.start(now); src.stop(now + duration);
+}
+
+function playClick(isStart) {
+  if (!audioCtx) return;
+  const ctx = audioCtx;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'square'; osc.frequency.value = isStart ? 1100 : 750;
+  const now = ctx.currentTime;
+  gain.gain.setValueAtTime(0.4, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(now); osc.stop(now + 0.05);
+}
+
+async function acquireMic() {
+  if (localStream) return localStream;
+  rawStream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false },
+    video: false,
+  });
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const source = audioCtx.createMediaStreamSource(rawStream);
+  micGain = audioCtx.createGain(); micGain.gain.value = 0;
+  const dest = audioCtx.createMediaStreamDestination();
+  source.connect(micGain);
+  buildRadioChain(micGain, audioCtx, dest);
+  localStream = dest.stream;
+  return localStream;
+}
+
+// ════════════════════════════════════════════════════════════════
+// WebRTC helpers
+// ════════════════════════════════════════════════════════════════
+function createPeerConnection(peerId) {
+  if (peers[peerId]) return peers[peerId];
+
+  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  peers[peerId] = pc;
+
+  // Add local tracks
+  if (localStream) {
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+  }
+
+  // Incoming audio → radio chain → speakers
+  pc.ontrack = (e) => {
+    if (!audioCtx) return;
+    const inSource = audioCtx.createMediaStreamSource(e.streams[0]);
+    buildRadioChain(inSource, audioCtx, audioCtx.destination);
+  };
+
+  // ICE candidates
+  pc.onicecandidate = (e) => {
+    if (e.candidate) {
+      wsSend({ type: 'ice', target: peerId, candidate: e.candidate });
+    }
+  };
+
+  pc.onconnectionstatechange = () => {
+    if (['failed','disconnected','closed'].includes(pc.connectionState)) {
+      closePeer(peerId);
+    }
+  };
+
+  return pc;
+}
+
+function closePeer(peerId) {
+  if (peers[peerId]) {
+    peers[peerId].close();
+    delete peers[peerId];
+  }
+  const el = document.getElementById(`audio-${peerId}`);
+  if (el) el.remove();
+}
+
+async function makeOffer(peerId) {
+  const pc = createPeerConnection(peerId);
+  try {
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    wsSend({ type: 'offer', target: peerId, sdp: pc.localDescription });
+  } catch(e) { console.warn('offer error', e); }
+}
+
+async function handleOffer(fromId, sdp) {
+  const pc = createPeerConnection(fromId);
+  try {
+    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    wsSend({ type: 'answer', target: fromId, sdp: pc.localDescription });
+  } catch(e) { console.warn('answer error', e); }
+}
+
+async function handleAnswer(fromId, sdp) {
+  const pc = peers[fromId];
+  if (!pc) return;
+  try {
+    if (pc.signalingState === 'have-local-offer') {
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    }
+  } catch(e) { console.warn('answer set error', e); }
+}
+
+async function handleIce(fromId, candidate) {
+  const pc = peers[fromId];
+  if (!pc) return;
+  try {
+    await pc.addIceCandidate(new RTCIceCandidate(candidate));
+  } catch(e) { /* ignore */ }
+}
+
+// ════════════════════════════════════════════════════════════════
+// WebSocket
+// ════════════════════════════════════════════════════════════════
+function wsSend(obj) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(obj));
+  }
+}
+
+function connectWS(code) {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws/${code}`);
+
+  ws.onopen = () => {
+    console.log('WS connected');
+  };
+
+  ws.onmessage = async (e) => {
+    const msg = JSON.parse(e.data);
+    await handleMessage(msg);
+  };
+
+  ws.onclose = (e) => {
+    if (e.code === 4004) { setError('CHANNEL NOT FOUND'); return; }
+    if (e.code === 4008) { setError('CODE EXPIRED'); return; }
+    if ($('walkie-screen') && !$('walkie-screen').classList.contains('hidden')) {
+      setStatus('DISCONNECTED', '');
+    }
+  };
+
+  ws.onerror = () => setError('CONNECTION ERROR');
+}
+
+async function handleMessage(msg) {
+  switch (msg.type) {
+    case 'welcome':
+      myId = msg.user_id;
+      channelBusy = msg.busy;
+      busyBy = msg.busy_by;
+      $('user-count').textContent = msg.user_count;
+      $('ch-code-display').textContent = channelCode;
+      setStatus('hold space to talk');
+      setLed(channelBusy ? 'busy' : 'idle');
+      // Switch to walkie screen
+      if (!$('walkie-screen').classList.contains('hidden') === false) {
+        showScreen('walkie-screen');
+      }
+      // Clear code screen timer if shown
+      if (timerInterval) clearInterval(timerInterval);
+      showScreen('walkie-screen');
+      break;
+
+    case 'peer_joined':
+      $('user-count').textContent = msg.user_count;
+      // Existing users make offer to the new peer
+      await makeOffer(msg.peer_id);
+      break;
+
+    case 'peer_left':
+      $('user-count').textContent = msg.user_count;
+      closePeer(msg.peer_id);
+      break;
+
+    case 'offer':
+      await handleOffer(msg.from, msg.sdp);
+      break;
+
+    case 'answer':
+      await handleAnswer(msg.from, msg.sdp);
+      break;
+
+    case 'ice':
+      await handleIce(msg.from, msg.candidate);
+      break;
+
+    case 'channel_busy':
+      channelBusy = true;
+      busyBy = msg.user_id;
+      if (msg.user_id !== myId) {
+        // incoming transmission click
+        playClick(true);
+        playNoiseBurst(0.2, 0.2);
+        setLed('busy');
+        setStatus('RECEIVING…', 'free');
+        $('radio-wrap').classList.add('receiving');
+      }
+      break;
+
+    case 'channel_free':
+      channelBusy = false;
+      busyBy = null;
+      if (!isTalking) {
+        if (msg.user_id !== myId) {
+          playClick(false);
+          playNoiseBurst(0.1, 0.1);
+        }
+        setLed('idle');
+        setStatus('hold space to talk');
+        $('radio-wrap').classList.remove('receiving');
+        $('status-bar').className = 'status-bar';
+      }
+      break;
+
+    case 'channel_blocked':
+      setStatus('CHANNEL BUSY', '');
+      // brief flash
+      setTimeout(() => {
+        if (!isTalking) setStatus('hold space to talk');
+      }, 1200);
+      break;
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// PTT
+// ════════════════════════════════════════════════════════════════
+function startTalking() {
+  if (isTalking) return;
+  if (channelBusy && busyBy !== myId) {
+    setStatus('CHANNEL BUSY', '');
+    setTimeout(() => { if (!isTalking) setStatus('hold space to talk'); }, 1000);
+    return;
+  }
+  isTalking = true;
+
+  // 1. click + noise burst immediately
+  playClick(true);
+  playNoiseBurst(0.3, NOISE_DUR);
+
+  // 2. tilt radio right away
+  $('radio-wrap').classList.add('talking');
+  $('ptt-btn').classList.add('pressed');
+  setStatus('…', 'talking');
+
+  // 3. after delay — open mic and announce
+  setTimeout(() => {
+    if (!isTalking) return;
+    if (micGain) micGain.gain.setTargetAtTime(1, audioCtx.currentTime, 0.02);
+    wsSend({ type: 'ptt_start' });
+    setLed('free');
+    setStatus('TRANSMITTING…', 'talking');
+  }, PTT_DELAY_MS);
+}
+
+function stopTalking() {
+  if (!isTalking) return;
+  isTalking = false;
+  if (micGain) micGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.01);
+  wsSend({ type: 'ptt_stop' });
+  playClick(false);
+  playNoiseBurst(0.15, 0.12);
+  $('radio-wrap').classList.remove('talking');
+  $('ptt-btn').classList.remove('pressed');
+  setLed('idle');
+  setStatus('hold space to talk');
+  $('status-bar').className = 'status-bar';
+}
+
+// Keyboard
+const keysDown = new Set();
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && !keysDown.has('Space')) {
+    e.preventDefault();
+    keysDown.add('Space');
+    if (!$('walkie-screen').classList.contains('hidden')) startTalking();
+  }
+});
+document.addEventListener('keyup', (e) => {
+  if (e.code === 'Space') {
+    keysDown.delete('Space');
+    stopTalking();
+  }
+});
+
+// PTT button (touch / mouse)
+const pttBtn = $('ptt-btn');
+pttBtn.addEventListener('mousedown', (e) => { e.preventDefault(); startTalking(); });
+pttBtn.addEventListener('mouseup', stopTalking);
+pttBtn.addEventListener('mouseleave', stopTalking);
+pttBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startTalking(); }, { passive: false });
+pttBtn.addEventListener('touchend', stopTalking);
+
+// ════════════════════════════════════════════════════════════════
+// Code timer
+// ════════════════════════════════════════════════════════════════
+function startCodeTimer() {
+  codeExpireTime = Date.now() + 10 * 60 * 1000;
+  timerInterval = setInterval(() => {
+    const left = Math.max(0, codeExpireTime - Date.now());
+    const m = Math.floor(left / 60000);
+    const s = Math.floor((left % 60000) / 1000);
+    $('timer-val').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    if (left === 0) clearInterval(timerInterval);
+  }, 1000);
+}
+
+// ════════════════════════════════════════════════════════════════
+// Landing actions
+// ════════════════════════════════════════════════════════════════
+$('btn-create').addEventListener('click', async () => {
+  try {
+    await acquireMic();
+  } catch(e) {
+    setError('MICROPHONE REQUIRED');
+    return;
+  }
+  try {
+    const res = await fetch('/create', { method: 'POST' });
+    const { code } = await res.json();
+    channelCode = code;
+    $('code-display').textContent = code;
+    showScreen('code-screen');
+    startCodeTimer();
+    connectWS(code);
+  } catch(e) {
+    setError('SERVER ERROR');
+  }
+});
+
+$('btn-join-show').addEventListener('click', () => {
+  $('join-row').classList.toggle('visible');
+  if ($('join-row').classList.contains('visible')) {
+    $('join-input').focus();
+  }
+});
+
+$('join-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') doJoin();
+});
+
+$('btn-join-go').addEventListener('click', doJoin);
+
+async function doJoin() {
+  const code = $('join-input').value.trim().toUpperCase();
+  if (code.length < 4) { setError('ENTER CODE'); return; }
+
+  try {
+    await acquireMic();
+  } catch(e) {
+    setError('MICROPHONE REQUIRED');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/check/${code}`);
+    const { ok, reason } = await res.json();
+    if (!ok) {
+      const msgs = { not_found: 'CHANNEL NOT FOUND', expired: 'CODE EXPIRED' };
+      setError(msgs[reason] || 'ERROR');
+      return;
+    }
+  } catch(e) {
+    setError('SERVER ERROR');
+    return;
+  }
+
+  channelCode = code;
+  connectWS(code);
+}
+
+$('leave-btn').addEventListener('click', () => {
+  stopTalking();
+  if (ws) ws.close();
+  Object.keys(peers).forEach(closePeer);
+  if (rawStream) {
+    rawStream.getTracks().forEach(t => t.stop());
+    rawStream = null;
+  }
+  if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  localStream = null;
+  micGain = null;
+  channelCode = null;
+  myId = null;
+  isTalking = false;
+  channelBusy = false;
+  $('join-input').value = '';
+  $('join-row').classList.remove('visible');
+  showScreen('landing');
+});
+</script>
+</body>
+</html>
