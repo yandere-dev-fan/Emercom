@@ -1,0 +1,50 @@
+{% extends "base_v2.html" %}
+
+{% block title %}Библиотека карт | ТП Тренажер{% endblock %}
+
+{% block content %}
+<section class="panel stack gap-m">
+    <div class="row spread align-center">
+        <div>
+            <p class="eyebrow">Библиотека карт</p>
+            <h1>Шаблоны карт</h1>
+            <p class="lead">Здесь создаются карты местности и карты объекта. При запуске сессии они копируются в рабочую версию.</p>
+        </div>
+        <a class="button primary" href="{{ url_for('new_template_page') }}">Создать карту</a>
+    </div>
+    <section class="stack gap-s">
+        <h2>Карты местности</h2>
+        <div class="grid-cards">
+            {% for item in area_templates %}
+            <a class="map-card" href="{{ url_for('template_editor_page', map_id=item.id) }}">
+                <strong>{{ item.title }}</strong>
+                <span>{{ item.width }}x{{ item.height }}</span>
+                <span>v{{ item.version }}</span>
+            </a>
+            {% else %}
+            <div class="map-card">
+                <strong>Пока нет карт местности</strong>
+                <span>Создайте хотя бы одну карту перед запуском сессии.</span>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    <section class="stack gap-s">
+        <h2>Карты объекта</h2>
+        <div class="grid-cards">
+            {% for item in object_templates %}
+            <a class="map-card" href="{{ url_for('template_editor_page', map_id=item.id) }}">
+                <strong>{{ item.title }}</strong>
+                <span>{{ item.width }}x{{ item.height }}</span>
+                <span>v{{ item.version }}</span>
+            </a>
+            {% else %}
+            <div class="map-card">
+                <strong>Пока нет карт объекта</strong>
+                <span>Создайте карту дома, чтобы открыть объектную фазу у РТП.</span>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+</section>
+{% endblock %}

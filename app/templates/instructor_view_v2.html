@@ -1,0 +1,22 @@
+<section class="panel compact stack gap-s">
+    <h2>Панель создателя</h2>
+    <div class="grid-two">
+        <label class="field">
+            <span>Событие</span>
+            <select id="runtime-event-type">
+                <option value="wind_shift">Смена ветра</option>
+                <option value="water_source_failure">Проблема с водой</option>
+                <option value="vehicle_breakdown">Поломка техники</option>
+                <option value="route_blocked">Перекрытие маршрута</option>
+                <option value="secondary_fire">Вторичный очаг</option>
+                <option value="collapse_warning">Риск обрушения</option>
+                <option value="visibility_drop">Падение видимости</option>
+            </select>
+        </label>
+        <label class="field">
+            <span>Параметры JSON</span>
+            <input type="text" id="runtime-event-payload" value="{}">
+        </label>
+    </div>
+    <button class="button primary" type="button" id="create-runtime-event-btn">Применить событие</button>
+</section>

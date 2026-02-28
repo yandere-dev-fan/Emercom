@@ -1,0 +1,40 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Database
+*.db
+*.sqlite3
+*.sqlite
+trainer.db*
+
+# Testing
+.pytest_cache/
+pytest-cache-files-*/
+pytest-cache-files-*
+.coverage
+htmlcov/
+_app_logs.txt
+
+# Agents/IDE
+.agents/
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Any other specific items
+dataset_llm_api.jsonl

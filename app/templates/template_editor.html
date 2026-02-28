@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Редактор карты | ТП Тренажер{% endblock %}
+
+{% block content %}
+<section class="editor-shell" id="editor-root" data-map-id="{{ map_document.id }}"
+    data-map-kind="{{ map_document.kind }}" data-role="template_editor" data-csrf-token=""
+    data-mode="template" data-api-map-base="/api/templates/{{ map_document.id }}"
+    data-export-url="/api/templates/{{ map_document.id }}/export" data-import-url="/api/templates/import"
+    data-editor-url-pattern="/templates/{id}/edit" data-ws-enabled="false" data-can-edit="true"
+    data-can-reorder="false" data-can-create-object-map="false">
+    <aside class="editor-sidebar">
+        <div class="panel compact stack gap-s">
+            <h2>{{ map_document.title }}</h2>
+            <p class="muted">{{ "местность" if map_document.kind == "area" else "объект" }} | {{ map_document.width }}x{{ map_document.height }} | v<span
+                    id="map-version">{{ map_document.version }}</span></p>
+        </div>
+
+        <div class="panel compact stack gap-s">
+            <h3>Инструменты</h3>
+            <div class="tool-grid">
+                <button type="button" class="tool-btn active" data-tool="pencil">Карандаш</button>
+                <button type="button" class="tool-btn" data-tool="line">Линия</button>
+                <button type="button" class="tool-btn" data-tool="rect">Прямоугольник</button>
+                <button type="button" class="tool-btn" data-tool="fill">Заливка</button>
+                <button type="button" class="tool-btn" data-tool="eraser">Ластик</button>
+                <button type="button" class="tool-btn" data-tool="picker">Пипетка</button>
+            </div>
+            <label class="field">
+                <span>Размер кисти</span>
+                <select id="brush-size">
+                    <option value="1">1x1</option>
+                    <option value="2">2x2</option>
+                    <option value="3">3x3</option>
+                    <option value="5">5x5</option>
+                </select>
+            </label>
+            <div class="row gap-s">
+                <button class="button" type="button" id="undo-btn">Назад</button>
+                <button class="button" type="button" id="redo-btn">Вперед</button>
+            </div>
+            <div class="row gap-s">
+                <button class="button" type="button" id="zoom-out">-</button>
+                <button class="button" type="button" id="zoom-in">+</button>
+                <button class="button" type="button" id="toggle-grid">Сетка</button>
+            </div>
+        </div>
+
+        <div class="panel compact stack gap-s">
+            <h3>Уровни</h3>
+            <div id="level-list" class="stack gap-xs"></div>
+        </div>
+
+        <div class="panel compact stack gap-s">
+            <h3>Слои</h3>
+            <div id="layer-list" class="stack gap-xs"></div>
+        </div>
+
+        <div class="panel compact stack gap-s">
+            <div class="row spread align-center">
+                <h3>Палитра</h3>
+                <span id="selected-tile-label" class="pill subtle">Ничего</span>
+            </div>
+            <div id="palette-list" class="stack gap-s"></div>
+        </div>
+
+        <div class="panel compact stack gap-s">
+            <h3>Версии</h3>
+            <div class="row gap-s">
+                <button class="button" type="button" id="snapshot-btn">Снимок</button>
+                <a class="button" id="export-btn" href="/api/templates/{{ map_document.id }}/export">Экспорт</a>
+            </div>
+            <label class="field">
+                <span>Импорт JSON</span>
+                <input type="file" id="import-json" accept="application/json">
+            </label>
+            <div id="snapshot-list" class="stack gap-xs"></div>
+        </div>
+    </aside>
+
+    <section class="editor-main">
+        <div class="panel compact grow">
+            <div class="canvas-wrap">
+                <canvas id="map-canvas" width="960" height="700"></canvas>
+            </div>
+        </div>
+        <div class="panel compact mini-panel">
+            <h3>Миникарта</h3>
+            <canvas id="mini-map" width="180" height="180"></canvas>
+        </div>
+        <div class="panel compact">
+            <p class="muted" id="status-line">Загрузка карты...</p>
+        </div>
+    </section>
+</section>
+<script type="module" src="{{ url_for('static', path='js/template_editor.js') }}"></script>
+{% endblock %}

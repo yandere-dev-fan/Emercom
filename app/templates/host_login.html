@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Библиотека карт | ТП Тренажер{% endblock %}
+
+{% block content %}
+<section class="panel stack gap-m">
+    <div>
+        <p class="eyebrow">Template Library</p>
+        <h1>No Separate Login Required</h1>
+        <p class="lead">Template maps are now open directly. Use the library link to create reusable area and object maps before creating a session.</p>
+    </div>
+    <div class="button-row">
+        <a class="button primary xl" href="{{ url_for('template_library_page') }}">Open Template Library</a>
+    </div>
+</section>
+{% endblock %}

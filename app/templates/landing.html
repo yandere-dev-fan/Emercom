@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Главная | TP Simulator{% endblock %}
+
+{% block content %}
+<section class="hero-card">
+    <div>
+        <p class="eyebrow">Этап 1</p>
+        <h1>Браузерный тренажёр с сессиями и редактором карт</h1>
+        <p class="lead">Server-rendered страницы, Python backend и канвас-редактор для тактических схем.</p>
+    </div>
+    <div class="landing-actions">
+        <a class="action-card" href="{{ url_for('new_session_page') }}">
+            <span class="action-title">Создать сессию</span>
+            <span class="action-caption">Сгенерировать большой ключ и войти как админ.</span>
+        </a>
+        <a class="action-card" href="{{ url_for('join_session_page') }}">
+            <span class="action-title">Присоединиться к сессии</span>
+            <span class="action-caption">Войти по ключу и смотреть обновления в реальном времени.</span>
+        </a>
+        {% if auth_session %}
+        <a class="action-card"
+            href="{{ url_for('session_page', session_code=auth_session.training_session.session_code) }}">
+            <span class="action-title">Создать карту</span>
+            <span class="action-caption">Открыть текущую сессию и перейти к созданию карты.</span>
+        </a>
+        {% else %}
+        <a class="action-card disabled" href="{{ url_for('new_session_page') }}">
+            <span class="action-title">Создать карту</span>
+            <span class="action-caption">Сначала создай сессию или войди по ключу.</span>
+        </a>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

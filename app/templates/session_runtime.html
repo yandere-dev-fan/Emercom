@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Сессия {{ session.session_code }} | ТП Тренажер{% endblock %}
+
+{% block content %}
+<section class="panel stack gap-m" id="session-runtime" data-session-code="{{ session.session_code }}"
+    data-csrf-token="{{ auth_session.csrf_token }}" data-role="{{ auth_session.role }}">
+    <div class="row spread align-center">
+        <div>
+            <p class="eyebrow">Ход тренировки</p>
+            <h1>{{ session.session_code }}</h1>
+            <p class="lead">Текущая роль: <strong>{{ {"instructor": "создатель", "dispatcher": "диспетчер", "rtp": "РТП", "observer": "наблюдатель", "waiting": "ожидание"}.get(auth_session.role, auth_session.role) }}</strong>. Основное состояние сессии хранится на сервере.</p>
+        </div>
+        <form method="post" action="{{ url_for('leave_session', session_code=session.session_code) }}">
+            <input type="hidden" name="csrf_token" value="{{ auth_session.csrf_token }}">
+            <button class="button" type="submit">Выйти</button>
+        </form>
+    </div>
+
+    <div class="grid-three">
+        <div class="key-box">
+            <span class="key-label">Статус</span>
+            <code id="runtime-status">{{ {"setup": "подготовка", "dispatch_call": "вызов", "enroute": "в пути", "recon": "разведка", "tactical": "тактика", "contained": "локализация", "finished": "завершено"}.get(state_payload.status, state_payload.status) }}</code>
+        </div>
+        <div class="key-box">
+            <span class="key-label">Скорость времени</span>
+            <code id="runtime-time-scale">{{ state_payload.time_scale }}x</code>
+        </div>
+        <div class="key-box">
+            <span class="key-label">Прошло</span>
+            <code id="runtime-elapsed">{{ state_payload.time_elapsed_seconds }}s</code>
+        </div>
+    </div>
+
+    <section class="stack gap-s">
+        <h2>Рабочие карты</h2>
+        <div class="grid-cards">
+            {% for item in state_payload.runtime_maps.area %}
+            <a class="map-card" href="{{ url_for('map_editor_page', map_id=item.id) }}">
+                <strong>{{ item.title }}</strong>
+                <span>Местность</span>
+                <span>v{{ item.version }}</span>
+            </a>
+            {% endfor %}
+            {% for item in state_payload.runtime_maps.object %}
+            <a class="map-card" href="{{ url_for('map_editor_page', map_id=item.id) }}">
+                <strong>{{ item.title }}</strong>
+                <span>Объект</span>
+                <span>v{{ item.version }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+
+    <div class="grid-two">
+        <div class="panel compact stack gap-s">
+            <h2>Участники</h2>
+            <div id="runtime-participants" class="stack gap-xs">
+                {% for participant in state_payload.participants %}
+                <div class="row spread align-center">
+                    <span>{{ participant.display_name or participant.id[:8] }}</span>
+                    <span class="pill subtle">{{ {"instructor": "создатель", "dispatcher": "диспетчер", "rtp": "РТП", "observer": "наблюдатель", "waiting": "ожидание"}.get(participant.role, participant.role) }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="panel compact stack gap-s">
+            <h2>Техника</h2>
+            <div id="runtime-vehicles" class="stack gap-xs">
+                {% for vehicle in state_payload.vehicles %}
+                <div class="row spread align-center">
+                    <span>{{ vehicle.display_name }}</span>
+                    <span class="pill subtle">{{ {"staged": "ожидает", "moving": "движение", "driving": "ручное управление"}.get(vehicle.status, vehicle.status) }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {% if auth_session.role in ["instructor", "admin"] %}
+        {% include "instructor_view.html" %}
+    {% elif auth_session.role == "dispatcher" %}
+        {% include "dispatcher_view.html" %}
+    {% elif auth_session.role == "rtp" %}
+        {% include "rtp_view.html" %}
+    {% else %}
+    <section class="panel compact stack gap-s">
+        <h2>Режим наблюдателя</h2>
+        <p class="muted">У наблюдателя только просмотр. Используйте рабочие карты и журнал событий, чтобы следить за тренировкой.</p>
+    </section>
+    {% endif %}
+
+    <section class="panel compact stack gap-s">
+        <h2>Журнал событий</h2>
+        <div id="runtime-events" class="stack gap-xs">
+            {% for item in (session.scenario_state.runtime_state_json.get('events', []) if session.scenario_state else []) %}
+            <div class="pill subtle">{{ item.get('event_type', 'event') }}</div>
+            {% else %}
+            <div class="pill subtle">Событий пока нет.</div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="panel compact stack gap-s">
+        <h2>Голос / PTT</h2>
+        <div class="row gap-s">
+            <select id="voice-channel">
+                <option value="dispatch_net">Канал диспетчера</option>
+                <option value="command_net">Командный канал</option>
+                <option value="ops_net">Оперативный канал</option>
+            </select>
+            <button class="button" type="button" id="ptt-btn">PTT</button>
+            <span class="pill subtle" id="ptt-status">PTT пока в тестовом режиме</span>
+        </div>
+    </section>
+</section>
+<script type="module" src="{{ url_for('static', path='js/session_runtime.js') }}"></script>
+<script type="module" src="{{ url_for('static', path='js/voice_ptt.js') }}"></script>
+{% endblock %}

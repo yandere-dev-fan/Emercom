@@ -1,0 +1,100 @@
+{% extends "base_v3.html" %}
+
+{% block title %}Создание сессии | ТП Тренажер{% endblock %}
+
+{% block content %}
+<section class="panel stack gap-m">
+    <div>
+        <p class="eyebrow">Настройка сценария</p>
+        <h1>Создать учебную сессию</h1>
+        <p class="lead">Сессия запускается на основе одной карты местности и одной карты объекта.</p>
+    </div>
+    {% if error %}
+    <div class="error-box">{{ error }}</div>
+    {% endif %}
+    {% if not area_templates or not object_templates %}
+    <div class="warning-note">Перед созданием сессии нужна хотя бы одна карта местности и хотя бы одна карта объекта.</div>
+    <div class="button-row">
+        <a class="button primary" href="{{ url_for('template_library_page') }}">Открыть библиотеку карт</a>
+    </div>
+    {% else %}
+    <form method="post" action="/sessions" class="stack gap-m">
+        <div class="grid-two">
+            <label class="field">
+                <span>Карта местности</span>
+                <select name="area_template_id" required>
+                    {% for item in area_templates %}
+                    <option value="{{ item.id }}">{{ item.title }} ({{ item.width }}x{{ item.height }})</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="field">
+                <span>Карта объекта</span>
+                <select name="object_template_id" required>
+                    {% for item in object_templates %}
+                    <option value="{{ item.id }}">{{ item.title }} ({{ item.width }}x{{ item.height }})</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+        <div class="grid-three">
+            <label class="field">
+                <span>Погода</span>
+                <select name="weather_kind">
+                    <option value="clear">Ясно</option>
+                    <option value="rain">Дождь</option>
+                    <option value="snow">Снег</option>
+                    <option value="fog">Туман</option>
+                </select>
+            </label>
+            <label class="field">
+                <span>Время суток</span>
+                <select name="time_of_day">
+                    <option value="day">День</option>
+                    <option value="dusk">Сумерки</option>
+                    <option value="night">Ночь</option>
+                </select>
+            </label>
+            <label class="field">
+                <span>Радиус подтверждения</span>
+                <input type="number" name="detection_radius_cells" min="1" max="10" value="2">
+            </label>
+        </div>
+        <div class="grid-three">
+            <label class="field">
+                <span>Направление ветра</span>
+                <input type="number" name="wind_direction_deg" min="0" max="359" value="0">
+            </label>
+            <label class="field">
+                <span>Сила ветра</span>
+                <input type="number" name="wind_speed_level" min="0" max="5" value="1">
+            </label>
+            <label class="field">
+                <span>Индекс очага на местности</span>
+                <input type="number" name="incident_area_index" min="0" value="0">
+            </label>
+        </div>
+        <div class="grid-two">
+            <label class="field">
+                <span>Этаж очага на объекте</span>
+                <input type="text" name="incident_object_level_code" value="F1" maxlength="16">
+            </label>
+            <label class="field">
+                <span>Индекс очага на объекте</span>
+                <input type="number" name="incident_object_index" min="0" value="0">
+            </label>
+        </div>
+        <div class="panel compact stack gap-s">
+            <h3>Доступная техника</h3>
+            {% for vehicle_type, spec in vehicle_catalog.items() %}
+            <label class="checkbox-row">
+                <input type="checkbox" name="enabled_vehicle_types" value="{{ vehicle_type }}" checked>
+                <span><strong>{{ spec.display_name }}</strong> (резерв создается автоматически)</span>
+            </label>
+            {% endfor %}
+        </div>
+        <button class="button primary xl" type="submit">Создать сессию</button>
+    </form>
+    {% endif %}
+</section>
+{% endblock %}

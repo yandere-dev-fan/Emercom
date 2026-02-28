@@ -1,0 +1,18 @@
+{% extends "base_v3.html" %}
+
+{% block title %}ТП Тренажер{% endblock %}
+
+{% block content %}
+<section class="panel stack gap-m">
+    <div>
+        <p class="eyebrow">Этап 2</p>
+        <h1>Тренажер: диспетчер, выезд, РТП, объект</h1>
+        <p class="lead">Сначала создайте карты, затем соберите сессию и передайте ключ участникам.</p>
+    </div>
+    <div class="grid-three">
+        <a class="button primary xl" href="{{ url_for('template_library_page') }}">Создать карту</a>
+        <a class="button primary xl" href="{{ url_for('new_session_page') }}">Создать сессию</a>
+        <a class="button primary xl" href="{{ url_for('join_session_page') }}">Присоединиться</a>
+    </div>
+</section>
+{% endblock %}

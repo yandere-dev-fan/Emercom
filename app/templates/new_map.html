@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Новая карта | TP Simulator{% endblock %}
+
+{% block content %}
+<section class="panel stack gap-m">
+    <div>
+        <p class="eyebrow">Новая карта</p>
+        <h1>Создать карту</h1>
+    </div>
+    <form method="post" action="/sessions/{{ session.session_code }}/maps" class="stack gap-m">
+        <input type="hidden" name="csrf_token" value="{{ auth_session.csrf_token }}">
+        <label class="field">
+            <span>Название карты</span>
+            <input type="text" name="title" required maxlength="128">
+        </label>
+        <div class="row gap-m">
+            <label class="field grow">
+                <span>Тип карты</span>
+                <select name="kind" id="map-kind">
+                    <option value="area">Общая местность</option>
+                    <option value="object">Карта объекта</option>
+                </select>
+            </label>
+            <label class="field grow">
+                <span>Категория</span>
+                <select name="map_type">
+                    <option value="city">Город</option>
+                    <option value="private">Частный сектор</option>
+                    <option value="industrial">Промышленная</option>
+                    <option value="mixed">Смешанная</option>
+                </select>
+            </label>
+        </div>
+        <div class="row gap-m">
+            <label class="field grow">
+                <span>Ширина</span>
+                <input type="number" name="width" min="8" max="256" value="32" required>
+            </label>
+            <label class="field grow">
+                <span>Высота</span>
+                <input type="number" name="height" min="8" max="256" value="32" required>
+            </label>
+            <label class="field grow">
+                <span>Размер клетки (px)</span>
+                <input type="number" name="cell_size_px" min="8" max="64" value="20" required>
+            </label>
+            <label class="field grow">
+                <span>Метров на клетку</span>
+                <input type="number" name="meters_per_cell" min="1" max="1000" value="2" required>
+            </label>
+        </div>
+        <label class="field">
+            <span>Родительская карта (для object)</span>
+            <select name="parent_map_id" id="parent-map-select">
+                <option value="">Не выбрано</option>
+                {% for item in maps %}
+                    {% if item.kind == "area" %}
+                    <option value="{{ item.id }}">{{ item.title }}</option>
+                    {% endif %}
+                {% endfor %}
+            </select>
+        </label>
+        <button class="button primary xl" type="submit">Создать</button>
+    </form>
+</section>
+<script>
+(() => {
+    const kind = document.getElementById("map-kind");
+    const parent = document.getElementById("parent-map-select");
+    const sync = () => {
+        parent.required = kind.value === "object";
+        parent.disabled = kind.value !== "object";
+    };
+    kind.addEventListener("change", sync);
+    sync();
+})();
+</script>
+{% endblock %}

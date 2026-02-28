@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Главная | ТП Тренажер{% endblock %}
+
+{% block content %}
+<section class="hero-card">
+    <div class="stack gap-s">
+        <p class="eyebrow">Этап 2</p>
+        <h1>Браузерный тренажер на основе готовых карт</h1>
+        <p class="lead">Сначала создаются две карты: общая местность и карта объекта. Затем на их основе запускается сессия, а создатель распределяет роли в лобби.</p>
+    </div>
+    <div class="landing-actions">
+        <a class="action-card" href="{{ url_for('template_library_page') }}">
+            <span class="action-title">Создать карту</span>
+            <span class="action-caption">Открыть библиотеку карт и подготовить карту местности или карту объекта до запуска тренировки.</span>
+        </a>
+        <a class="action-card" href="{{ url_for('new_session_page') }}">
+            <span class="action-title">Создать сессию</span>
+            <span class="action-caption">Выбрать две готовые карты, задать параметры сценария и получить ключ для входа.</span>
+        </a>
+        <a class="action-card" href="{{ url_for('join_session_page') }}">
+            <span class="action-title">Присоединиться</span>
+            <span class="action-caption">Ввести длинный ключ сессии. Новые участники сначала попадают в режим ожидания, пока создатель не выдаст роль.</span>
+        </a>
+    </div>
+</section>
+{% endblock %}

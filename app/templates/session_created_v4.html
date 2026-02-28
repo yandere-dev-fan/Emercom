@@ -1,0 +1,27 @@
+{% extends "base_v3.html" %}
+
+{% block title %}Сессия создана | ТП Тренажер{% endblock %}
+
+{% block content %}
+<section class="panel stack gap-m">
+    <div>
+        <p class="eyebrow">Сессия создана</p>
+        <h1>{{ session.session_code }}</h1>
+        <p class="lead">Сохраните ключ подключения. Все участники входят только по нему.</p>
+    </div>
+    <div class="key-box">
+        <span class="key-label">Ключ подключения</span>
+        <code>{{ join_key }}</code>
+    </div>
+    <div class="button-row">
+        <a class="button primary" href="{{ session_url }}">Перейти в сессию</a>
+        <a class="button" href="{{ join_link }}">Ссылка входа</a>
+    </div>
+    {% if join_qr_data_uri %}
+    <div class="panel compact stack gap-s">
+        <h2>QR-код</h2>
+        <img src="{{ join_qr_data_uri }}" alt="QR-код для входа" style="max-width: 220px;">
+    </div>
+    {% endif %}
+</section>
+{% endblock %}
