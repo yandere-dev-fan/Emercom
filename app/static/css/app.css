@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+
 :root {
     --bg: #11131a;
     --panel: #191d27;
@@ -9,6 +11,12 @@
     --accent-2: #4f5d75;
     --danger: #cc2936;
     --success: #06d6a0;
+    --role-instructor: #ef8354;
+    --role-dispatcher: #4ea8de;
+    --role-rtp: #06d6a0;
+    --role-observer: #9ca8c3;
+    --role-waiting: #6c757d;
+    --fire-zone: #ff4444;
 }
 
 * {
@@ -17,11 +25,13 @@
 
 body {
     margin: 0;
-    font-family: "Segoe UI", system-ui, sans-serif;
+    font-family: 'Inter', "Segoe UI", system-ui, sans-serif;
     background:
         radial-gradient(circle at top right, rgba(239, 131, 84, 0.12), transparent 32%),
+        radial-gradient(circle at bottom left, rgba(78, 168, 222, 0.06), transparent 40%),
         linear-gradient(180deg, #0f1218 0%, #11131a 100%);
     color: var(--text);
+    min-height: 100vh;
 }
 
 a {
@@ -157,13 +167,29 @@ select {
     display: grid;
 }
 
-.gap-xs { gap: 6px; }
-.gap-s { gap: 10px; }
-.gap-m { gap: 16px; }
+.gap-xs {
+    gap: 6px;
+}
 
-.align-center { align-items: center; }
-.spread { justify-content: space-between; }
-.grow { flex: 1 1 auto; }
+.gap-s {
+    gap: 10px;
+}
+
+.gap-m {
+    gap: 16px;
+}
+
+.align-center {
+    align-items: center;
+}
+
+.spread {
+    justify-content: space-between;
+}
+
+.grow {
+    flex: 1 1 auto;
+}
 
 .field {
     display: grid;
@@ -198,7 +224,7 @@ select {
 
 .button.primary {
     background: var(--accent);
-    border-color: rgba(255,255,255,0.06);
+    border-color: rgba(255, 255, 255, 0.06);
     color: #161616;
     font-weight: 700;
 }
@@ -302,6 +328,40 @@ select {
     gap: 6px;
 }
 
+.runtime-map-stage {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
+}
+
+.runtime-map-grid-double {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.runtime-map-panel,
+.runtime-side-panel {
+    background: #11161f;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 14px;
+}
+
+.runtime-canvas-wrap {
+    padding: 8px;
+}
+
+.runtime-map-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-height: 320px;
+    border-radius: 10px;
+    background: #0b0e14;
+}
+
 .participant-card {
     display: grid;
     gap: 10px;
@@ -401,7 +461,7 @@ select {
     width: 18px;
     height: 18px;
     border-radius: 5px;
-    border: 1px solid rgba(255,255,255,0.15);
+    border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .small-toggle {
@@ -440,6 +500,7 @@ select {
 }
 
 @media (max-width: 760px) {
+
     .site-header,
     .page-shell {
         width: min(100vw - 20px, 100%);
@@ -450,8 +511,145 @@ select {
         grid-template-columns: 1fr;
     }
 
+    .runtime-map-stage,
+    .runtime-map-grid-double {
+        grid-template-columns: 1fr;
+    }
+
     .row,
     .button-row {
         flex-wrap: wrap;
     }
+}
+
+/* ──────── Role-specific pill colors ──────── */
+.pill.role-instructor {
+    background: rgba(239, 131, 84, 0.2);
+    border-color: var(--role-instructor);
+    color: var(--role-instructor);
+}
+
+.pill.role-dispatcher {
+    background: rgba(78, 168, 222, 0.2);
+    border-color: var(--role-dispatcher);
+    color: var(--role-dispatcher);
+}
+
+.pill.role-rtp {
+    background: rgba(6, 214, 160, 0.2);
+    border-color: var(--role-rtp);
+    color: var(--role-rtp);
+}
+
+.pill.role-observer {
+    background: rgba(156, 168, 195, 0.15);
+    border-color: var(--role-observer);
+    color: var(--role-observer);
+}
+
+.pill.role-waiting {
+    background: rgba(108, 117, 125, 0.15);
+    border-color: var(--role-waiting);
+    color: var(--role-waiting);
+}
+
+.pill.role-admin {
+    background: rgba(239, 131, 84, 0.2);
+    border-color: var(--role-instructor);
+    color: var(--role-instructor);
+}
+
+/* ──────── Button hover & transition ──────── */
+.button {
+    transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.button.primary:hover:not(:disabled) {
+    background: #f49a6e;
+    box-shadow: 0 4px 20px rgba(239, 131, 84, 0.4);
+}
+
+/* ──────── Glow Start button ──────── */
+.button.glow {
+    animation: glow-pulse 2s ease-in-out infinite;
+    font-size: 1.1rem;
+    padding: 14px 24px;
+}
+
+@keyframes glow-pulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 8px rgba(239, 131, 84, 0.3);
+    }
+
+    50% {
+        box-shadow: 0 0 24px rgba(239, 131, 84, 0.6), 0 0 48px rgba(239, 131, 84, 0.2);
+    }
+}
+
+/* ──────── Fire zone pulse overlay (used in JS canvas) ──────── */
+@keyframes fire-zone-pulse {
+
+    0%,
+    100% {
+        opacity: 0.35;
+    }
+
+    50% {
+        opacity: 0.65;
+    }
+}
+
+/* ──────── Landing hero ──────── */
+.landing-hero {
+    text-align: center;
+    padding: 48px 24px 40px;
+}
+
+.landing-hero h1 {
+    font-size: 2.6rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    background: linear-gradient(135deg, var(--accent), #f7c59f);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.landing-hero .grid-three {
+    justify-items: center;
+    max-width: 640px;
+    margin: 0 auto;
+}
+
+/* ──────── Map card hover ──────── */
+.map-card {
+    transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+a.map-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--accent);
+    box-shadow: 0 6px 20px rgba(239, 131, 84, 0.15);
+}
+
+/* ──────── Tool button hover ──────── */
+.tool-btn {
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.tool-btn:hover:not(:disabled):not(.active) {
+    background: rgba(239, 131, 84, 0.1);
+    border-color: rgba(239, 131, 84, 0.3);
+}
+
+/* ──────── Key box glow ──────── */
+.key-box code {
+    color: var(--accent);
 }

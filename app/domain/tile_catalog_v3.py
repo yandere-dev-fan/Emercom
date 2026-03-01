@@ -46,13 +46,6 @@ AREA_TILE_CATALOG: dict[str, list[TileDefinition]] = {
         TileDefinition(3, "Склад / ангар", "#78350f", "Здания"),
         TileDefinition(4, "Промышленное здание", "#57534e", "Здания"),
     ],
-    "markers": [
-        TileDefinition(0, "Пусто", "transparent", "Тактика"),
-        TileDefinition(1, "Метка диспетчера", "#e11d48", "Тактика"),
-        TileDefinition(2, "Точка техники", "#10b981", "Тактика"),
-        TileDefinition(3, "Точка подачи", "#0ea5e9", "Тактика"),
-        TileDefinition(4, "Зона эвакуации", "#38bdf8", "Тактика"),
-    ],
     "effects_fire": [
         TileDefinition(0, "Пусто", "transparent", "Огонь"),
         TileDefinition(1, "Горит", "#f97316", "Огонь"),
@@ -62,6 +55,13 @@ AREA_TILE_CATALOG: dict[str, list[TileDefinition]] = {
         TileDefinition(0, "Пусто", "transparent", "Дым"),
         TileDefinition(1, "Легкий дым", "rgba(156,163,175,0.35)", "Дым"),
         TileDefinition(2, "Плотный дым", "rgba(75,85,99,0.55)", "Дым"),
+    ],
+    "markers": [
+        TileDefinition(0, "Пусто", "transparent", "Тактика"),
+        TileDefinition(1, "Метка диспетчера", "#e11d48", "Тактика"),
+        TileDefinition(2, "Точка техники", "#10b981", "Тактика"),
+        TileDefinition(3, "Точка подачи", "#0ea5e9", "Тактика"),
+        TileDefinition(4, "Зона эвакуации", "#38bdf8", "Тактика"),
     ],
 }
 
@@ -127,11 +127,33 @@ IGNITION_THRESHOLDS: dict[tuple[str, int], int] = {
     ("walls", 4): 300,
 }
 
+# --- ФИЗИЧЕСКИЕ СВОЙСТВА МАТЕРИАЛОВ ---
+HEAT_RELEASE_RATES: dict[tuple[str, int], int] = {
+    ("interior", 1): 10,   # мебель / горючая нагрузка
+    ("interior", 2): 8,    # кухня / техника
+    ("interior", 3): 20,   # газовый узел — горит очень интенсивно
+    ("walls", 1): 6,       # деревянная стена
+    ("floor", 1): 5,       # деревянный пол
+}
 
-def ignition_threshold(layer_key: str, code: int) -> int:
+THERMAL_CONDUCTIVITY: dict[tuple[str, int], float] = {
+    ("openings", 1): 0.8,  # дверь — пропускает тепло
+    ("openings", 2): 0.9,  # окно — ещё лучше
+    ("walls", 1): 0.4,     # дерево — частично пропускает
+    ("walls", 2): 0.2,     # кирпич — плохо
+    ("walls", 4): 0.1,     # бетон — почти не пропускает
+}
+
+
+def get_heat_release(layer_key: str, code: int) -> int:
+    return HEAT_RELEASE_RATES.get((layer_key, code), 0)
+
+
+def get_conductivity(layer_key: str, code: int) -> float:
     if code == 0:
-        return 9999
-    return IGNITION_THRESHOLDS.get((layer_key, code), 9999)
+        return 1.0
+    return THERMAL_CONDUCTIVITY.get((layer_key, code), 0.5)
+# ---------------------------------
 
 
 def object_level_code(floor_number: int) -> str:

@@ -6,7 +6,14 @@ from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.api.schemas import ImportMapRequest, MapCreateRequest, MapMetadataUpdateRequest, MapPatchRequest, SnapshotCreateRequest, ObjectMapCreateRequest
+from app.api.schemas import (
+    ImportMapRequest,
+    MapCreateRequest,
+    MapMetadataUpdateRequest,
+    MapPatchRequest,
+    ObjectMapCreateRequest,
+    SnapshotCreateRequest,
+)
 from app.db.session import get_db
 from app.domain.session_maps_v2 import serialize_map_for_role
 from app.domain.services import list_snapshots
@@ -14,13 +21,13 @@ from app.domain.template_maps_v2 import (
     add_template_level,
     apply_template_patch,
     create_template_map,
+    create_template_object_map_from_existing,
     create_template_snapshot,
     export_template_map,
     get_template_map,
     import_template_map,
     list_template_maps,
     update_template_map_metadata,
-    create_template_object_map_from_existing,
 )
 
 
@@ -47,30 +54,27 @@ def get_templates(db: DbSession) -> dict[str, object]:
 
 
 @router.post("")
-async def post_template(
-    payload: MapCreateRequest,
-    db: DbSession,
-) -> dict[str, object]:
+async def post_template(payload: MapCreateRequest, db: DbSession) -> dict[str, object]:
     map_document = create_template_map(db, payload=payload)
     return {"ok": True, "map_id": map_document.id}
 
 
-@router.get("/{map_id}")
-def get_template(map_id: str, db: DbSession) -> dict[str, object]:
+def _template_or_404(db: Session, map_id: str):
     map_document = get_template_map(db, map_id)
     if map_document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Карта не найдена.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template map was not found.")
+    return map_document
+
+
+@router.get("/{map_id}")
+def get_template(map_id: str, db: DbSession) -> dict[str, object]:
+    map_document = _template_or_404(db, map_id)
     return serialize_map_for_role(map_document, "template_editor")
 
 
 @router.post("/{map_id}/levels")
-async def post_template_level(
-    map_id: str,
-    db: DbSession,
-) -> dict[str, object]:
-    map_document = get_template_map(db, map_id)
-    if map_document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Карта не найдена.")
+async def post_template_level(map_id: str, db: DbSession) -> dict[str, object]:
+    map_document = _template_or_404(db, map_id)
     level = add_template_level(db, map_document=map_document)
     return {
         "ok": True,
@@ -90,9 +94,7 @@ async def put_template_metadata(
     payload: MapMetadataUpdateRequest,
     db: DbSession,
 ) -> dict[str, object]:
-    map_document = get_template_map(db, map_id)
-    if map_document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Карта не найдена.")
+    map_document = _template_or_404(db, map_id)
     updated_map = update_template_map_metadata(db, map_document=map_document, payload=payload)
     return {"ok": True, "version": updated_map.version, "title": updated_map.title}
 
@@ -103,9 +105,7 @@ async def post_template_patch(
     payload: MapPatchRequest,
     db: DbSession,
 ) -> dict[str, object]:
-    map_document = get_template_map(db, map_id)
-    if map_document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Карта не найдена.")
+    map_document = _template_or_404(db, map_id)
     result = apply_template_patch(db, map_document=map_document, payload=payload)
     return {"ok": True, **result}
 
@@ -116,26 +116,20 @@ async def post_template_snapshot(
     payload: SnapshotCreateRequest,
     db: DbSession,
 ) -> dict[str, object]:
-    map_document = get_template_map(db, map_id)
-    if map_document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Карта не найдена.")
+    map_document = _template_or_404(db, map_id)
     snapshot = create_template_snapshot(db, map_document=map_document, label=payload.label)
     return {"id": snapshot.id, "label": snapshot.label, "version": snapshot.version, "created_at": snapshot.created_at.isoformat()}
 
 
 @router.get("/{map_id}/snapshots")
 def get_template_snapshots(map_id: str, db: DbSession) -> dict[str, object]:
-    map_document = get_template_map(db, map_id)
-    if map_document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Карта не найдена.")
+    map_document = _template_or_404(db, map_id)
     return {"items": list_snapshots(map_document)}
 
 
 @router.get("/{map_id}/export")
 def get_template_export(map_id: str, db: DbSession) -> JSONResponse:
-    map_document = get_template_map(db, map_id)
-    if map_document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Карта не найдена.")
+    map_document = _template_or_404(db, map_id)
     payload = export_template_map(map_document)
     return JSONResponse(payload, headers={"Content-Disposition": f'attachment; filename="template-{map_document.id}.json"'})
 
@@ -155,9 +149,7 @@ async def post_template_object_template(
     db: DbSession,
     payload: Annotated[ObjectMapCreateRequest | None, Body()] = None,
 ) -> dict[str, object]:
-    map_document = get_template_map(db, map_id)
-    if map_document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Карта не найдена.")
+    map_document = _template_or_404(db, map_id)
     object_map = create_template_object_map_from_existing(
         db,
         parent_map=map_document,

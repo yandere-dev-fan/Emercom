@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.schemas import ImportMapRequest, LayerReorderRequest, MapMetadataUpdateRequest, MapPatchRequest, ObjectMapCreateRequest, SnapshotCreateRequest
 from app.config import Settings, get_settings
 from app.db.session import get_db
-from app.domain.session_maps_v2 import serialize_map_for_role
+from app.domain.session_maps_v2 import build_runtime_overlay, serialize_map_for_role
 from app.domain.services import (
     apply_patch,
     create_import_job,
@@ -57,7 +57,11 @@ def get_map(map_id: str, request: Request, db: DbSession) -> dict[str, object]:
     if map_document.session_id != auth_session.training_session_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
     scenario_state = map_document.training_session.scenario_state if map_document.training_session is not None else None
-    return serialize_map_for_role(map_document, auth_session.role, scenario_state)
+    payload = serialize_map_for_role(map_document, auth_session.role, scenario_state)
+    runtime_overlay = build_runtime_overlay(map_document, viewer_role=auth_session.role, scenario_state=scenario_state)
+    if runtime_overlay is not None:
+        payload["runtime_overlay"] = runtime_overlay
+    return payload
 
 
 @router.put("/maps/{map_id}/metadata")

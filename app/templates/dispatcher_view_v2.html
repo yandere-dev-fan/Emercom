@@ -1,19 +1,41 @@
 <section class="panel compact stack gap-s">
-    <h2>Панель диспетчера</h2>
-    <label class="field">
-        <span>Индекс предполагаемого очага</span>
-        <input type="number" min="0" value="{{ session.scenario_state.dispatcher_guess_index or 0 }}" id="dispatcher-guess-index">
-    </label>
-    <button class="button primary" type="button" id="dispatcher-mark-btn">Поставить метку</button>
-    <div class="grid-two">
-        <label class="field">
-            <span>Обычные машины</span>
-            <input type="number" min="0" value="1" id="dispatch-count-fire-engine">
-        </label>
-        <label class="field">
-            <span>Машины с лестницей</span>
-            <input type="number" min="0" value="0" id="dispatch-count-ladder-engine">
-        </label>
+    <div class="row spread align-center">
+        <h2>Панель диспетчера</h2>
+        <span class="pill subtle" id="dispatcher-selection-pill">Нажмите на карту, чтобы указать точку вызова.</span>
     </div>
-    <button class="button" type="button" id="dispatch-order-btn">Отправить технику</button>
+    <div class="runtime-map-stage">
+        <div class="runtime-map-panel grow">
+            <div class="row spread align-center">
+                <strong>Общая карта</strong>
+                <span class="muted">Нажмите на ячейку, подтвердите точку, затем отправьте технику.</span>
+            </div>
+            <div class="canvas-wrap runtime-canvas-wrap">
+                <canvas id="dispatcher-area-canvas" class="runtime-map-canvas" width="960" height="640"></canvas>
+            </div>
+        </div>
+        <div class="panel compact runtime-side-panel stack gap-s">
+            <label class="field">
+                <span>Выбранная точка</span>
+                <input type="text" id="dispatcher-guess-label" readonly value="Не выбрана">
+            </label>
+            <label class="field">
+                <span>Точка выезда</span>
+                <select id="dispatch-spawn-select"></select>
+            </label>
+            <div class="grid-two">
+                <label class="field">
+                    <span>Пожарные машины</span>
+                    <input type="number" min="0" value="1" id="dispatch-count-fire-engine">
+                </label>
+                <label class="field">
+                    <span>Автолестницы</span>
+                    <input type="number" min="0" value="0" id="dispatch-count-ladder-engine">
+                </label>
+            </div>
+            <button class="button primary" type="button" id="dispatcher-mark-btn">Подтвердить точку вызова</button>
+            <button class="button" type="button" id="dispatch-order-btn">Отправить технику</button>
+            <p class="muted">Если указанная точка попадает в зону возгорания, фаза РТП начнётся после прибытия. Если нет
+                — техника всё равно прибудет и сообщит об отсутствии пожара.</p>
+        </div>
+    </div>
 </section>

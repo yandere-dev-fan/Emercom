@@ -1,6 +1,6 @@
 {% extends "base_v2.html" %}
 
-{% block title %}Редактор карты | ТП Тренажер{% endblock %}
+{% block title %}Редактор шаблона | ТП-СИМУЛЯТОР{% endblock %}
 
 {% block content %}
 <section class="editor-shell" id="editor-root" data-map-id="{{ map_document.id }}"
@@ -13,15 +13,16 @@
     <aside class="editor-sidebar">
         <div class="panel compact stack gap-s">
             <h2>{{ map_document.title }}</h2>
-            <p class="muted">{{ "местность" if map_document.kind == "area" else "объект" }} | {{ map_document.width
-                }}x{{ map_document.height }} | v<span id="map-version">{{ map_document.version }}</span></p>
+            <p class="muted">{{ {"area": "Общая зона", "object": "Объект"}.get(map_document.kind, map_document.kind) }}
+                | {{ map_document.width }}x{{ map_document.height }} | v<span id="map-version">{{ map_document.version
+                    }}</span></p>
         </div>
         <div class="panel compact stack gap-s">
             <h3>Инструменты</h3>
             <div class="tool-grid">
-                <button type="button" class="tool-btn active" data-tool="pencil">Карандаш</button>
+                <button type="button" class="tool-btn active" data-tool="pencil">Кисть</button>
                 <button type="button" class="tool-btn" data-tool="line">Линия</button>
-                <button type="button" class="tool-btn" data-tool="rect">Прямоугольник</button>
+                <button type="button" class="tool-btn" data-tool="rect">Прямоуг.</button>
                 <button type="button" class="tool-btn" data-tool="fill">Заливка</button>
                 <button type="button" class="tool-btn" data-tool="eraser">Ластик</button>
                 <button type="button" class="tool-btn" data-tool="picker">Пипетка</button>
@@ -36,8 +37,8 @@
                 </select>
             </label>
             <div class="row gap-s">
-                <button class="button" type="button" id="undo-btn">Назад</button>
-                <button class="button" type="button" id="redo-btn">Вперед</button>
+                <button class="button" type="button" id="undo-btn">Отменить</button>
+                <button class="button" type="button" id="redo-btn">Повторить</button>
             </div>
             <div class="row gap-s">
                 <button class="button" type="button" id="zoom-out">-</button>
@@ -47,9 +48,9 @@
         </div>
         <div class="panel compact stack gap-s">
             <div class="row spread align-center">
-                <h3>Этажи</h3>
+                <h3>Уровни</h3>
                 {% if map_document.kind == "object" %}
-                <button class="button" type="button" id="add-level-btn">+ этаж</button>
+                <button class="button" type="button" id="add-level-btn">+ Этаж</button>
                 {% endif %}
             </div>
             <div id="level-list" class="stack gap-xs"></div>
@@ -61,19 +62,19 @@
         <div class="panel compact stack gap-s">
             <div class="row spread align-center">
                 <h3>Палитра</h3>
-                <span id="selected-tile-label" class="pill subtle">Ничего</span>
+                <span id="selected-tile-label" class="pill subtle">Нет</span>
             </div>
             <div id="palette-list" class="stack gap-s"></div>
         </div>
         <div class="panel compact stack gap-s">
             <h3>Версии</h3>
             <div class="row gap-s">
-                <button class="button" type="button" id="snapshot-btn">Снимок</button>
+                <button class="button" type="button" id="snapshot-btn">Сохранить</button>
                 <a class="button" id="export-btn" href="/api/templates/{{ map_document.id }}/export">Экспорт</a>
             </div>
             {% if map_document.kind == "area" %}
-            <button class="button primary" type="button" id="create-object-map-btn" disabled>Сделать объект из
-                зоны</button>
+            <button class="button primary" type="button" id="create-object-map-btn" disabled>Создать карту
+                объекта</button>
             {% endif %}
             <label class="field">
                 <span>Импорт JSON</span>
@@ -89,7 +90,7 @@
             </div>
         </div>
         <div class="panel compact mini-panel">
-            <h3>Миникарта</h3>
+            <h3>Мини-карта</h3>
             <canvas id="mini-map" width="180" height="180"></canvas>
         </div>
         <div class="panel compact">

@@ -1,42 +1,45 @@
 <section class="panel compact stack gap-s">
-    <h2>Панель РТП</h2>
-    {% if session.scenario_state and session.scenario_state.incident_revealed %}
-    <div class="grid-two">
-        <label class="field">
-            <span>Техника</span>
-            <select id="rtp-vehicle-id">
-                {% for vehicle in session.vehicles %}
-                <option value="{{ vehicle.id }}">{{ vehicle.display_name }}</option>
-                {% endfor %}
-            </select>
-        </label>
-        <label class="field">
-            <span>Точки маршрута на объекте (x,y;x,y)</span>
-            <input type="text" id="rtp-route-points" value="1,1;4,4">
-        </label>
+    <div class="row spread align-center">
+        <h2>Тактическая панель РТП</h2>
+        <span class="pill subtle" id="rtp-phase-pill">
+            {% if session.scenario_state and session.scenario_state.incident_revealed %}
+            Фаза объекта активна
+            {% else %}
+            Ожидание прибытия первой машины
+            {% endif %}
+        </span>
     </div>
-    <div class="button-row">
-        <button class="button primary" type="button" id="rtp-route-btn">Применить маршрут</button>
+    <div id="rtp-locked-note"
+        class="{% if session.scenario_state and session.scenario_state.incident_revealed %}hidden{% endif %}">
+        <p class="muted">Карта РТП откроется только после прибытия машины в зону возгорания.</p>
     </div>
-    <div class="grid-three">
-        <label class="field">
-            <span>Направление</span>
-            <input type="number" id="rtp-heading" value="0" min="0" max="359">
-        </label>
-        <label class="field">
-            <span>Скорость (м/с)</span>
-            <input type="number" id="rtp-speed" value="3" min="0" max="50" step="0.5">
-        </label>
-        <button class="button" type="button" id="rtp-drive-btn">Сдвинуть</button>
+    <div id="rtp-object-stage"
+        class="runtime-map-stage {% if not (session.scenario_state and session.scenario_state.incident_revealed) %}hidden{% endif %}">
+        <div class="runtime-map-panel grow">
+            <div class="row spread align-center">
+                <strong>Карта объекта</strong>
+                <span class="muted">Выберите машину, укажите цель, стрелки — пошаговое перемещение.</span>
+            </div>
+            <div class="canvas-wrap runtime-canvas-wrap">
+                <canvas id="rtp-object-canvas" class="runtime-map-canvas" width="960" height="640"></canvas>
+            </div>
+        </div>
+        <div class="panel compact runtime-side-panel stack gap-s">
+            <label class="field">
+                <span>Активная машина</span>
+                <select id="rtp-vehicle-id">
+                    {% for vehicle in session.vehicles if vehicle.current_map_id == session.scenario_state.object_map_id
+                    or vehicle.status == "object_control" %}
+                    <option value="{{ vehicle.id }}">{{ vehicle.display_name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <p class="muted">Клавиши: стрелки — перемещение, <strong>H</strong> — развернуть рукав, <strong>N</strong> —
+                подать ствол.</p>
+            <div class="row gap-s">
+                <button class="button" type="button" id="rtp-hose-btn">Развернуть рукав</button>
+                <button class="button" type="button" id="rtp-nozzle-btn">Подать ствол</button>
+            </div>
+        </div>
     </div>
-    <div class="grid-two">
-        <label class="field">
-            <span>Линия рукава (x,y;x,y)</span>
-            <input type="text" id="rtp-hose-points" value="0,0;4,4">
-        </label>
-        <button class="button" type="button" id="rtp-hose-btn">Создать рукав</button>
-    </div>
-    {% else %}
-    <p class="muted">РТП ждёт подтвержденного прибытия техники. Карта объекта откроется автоматически после верного прибытия.</p>
-    {% endif %}
 </section>

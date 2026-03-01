@@ -103,6 +103,7 @@ class CreateSessionRequest(BaseModel):
     incident_object_level_code: str = Field(min_length=1, max_length=16, default="F1")
     incident_object_index: int = Field(ge=0, default=0)
     enabled_vehicle_types: list[str] = Field(min_length=1)
+    display_name: str | None = Field(default=None, max_length=64)
 
 
 class ParticipantRoleUpdateRequest(BaseModel):
@@ -172,6 +173,7 @@ class NozzleUpdateRequest(BaseModel):
 
 class SessionJoinRequest(BaseModel):
     join_key: str = Field(min_length=16, max_length=256)
+    display_name: str | None = Field(default=None, max_length=64)
 
     @field_validator("join_key")
     @classmethod
@@ -181,6 +183,10 @@ class SessionJoinRequest(BaseModel):
 
 class TemplateLevelCreateRequest(BaseModel):
     pass
+
+
+class VehicleObjectStepRequest(BaseModel):
+    direction: str = Field(pattern="^(up|down|left|right)$")
 
 
 class ChatMessageCreateRequest(BaseModel):

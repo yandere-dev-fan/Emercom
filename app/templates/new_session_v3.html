@@ -1,19 +1,20 @@
 {% extends "base_v2.html" %}
 
-{% block title %}Создание сессии | ТП Тренажер{% endblock %}
+{% block title %}Создать сессию | ТП-СИМУЛЯТОР{% endblock %}
 
 {% block content %}
 <section class="panel stack gap-m">
     <div>
         <p class="eyebrow">Настройка сценария</p>
         <h1>Создать учебную сессию</h1>
-        <p class="lead">Сессия запускается на основе одной карты местности и одной карты объекта.</p>
+        <p class="lead">Сессия создаётся из одного шаблона общей зоны и одного шаблона объекта.</p>
     </div>
     {% if error %}
     <div class="error-box">{{ error }}</div>
     {% endif %}
     {% if not area_templates or not object_templates %}
-    <div class="warning-note">Перед созданием сессии нужна хотя бы одна карта местности и хотя бы одна карта объекта.</div>
+    <div class="warning-note">Перед созданием сессии необходимо создать хотя бы один шаблон общей зоны и один шаблон
+        объекта.</div>
     <div class="button-row">
         <a class="button primary" href="{{ url_for('template_library_page') }}">Открыть библиотеку карт</a>
     </div>
@@ -21,7 +22,7 @@
     <form method="post" action="/sessions" class="stack gap-m">
         <div class="grid-two">
             <label class="field">
-                <span>Карта местности</span>
+                <span>Шаблон общей зоны</span>
                 <select name="area_template_id" required>
                     {% for item in area_templates %}
                     <option value="{{ item.id }}">{{ item.title }} ({{ item.width }}x{{ item.height }})</option>
@@ -29,7 +30,7 @@
                 </select>
             </label>
             <label class="field">
-                <span>Карта объекта</span>
+                <span>Шаблон объекта</span>
                 <select name="object_template_id" required>
                     {% for item in object_templates %}
                     <option value="{{ item.id }}">{{ item.title }} ({{ item.width }}x{{ item.height }})</option>
@@ -56,13 +57,13 @@
                 </select>
             </label>
             <label class="field">
-                <span>Радиус подтверждения</span>
-                <input type="number" name="detection_radius_cells" min="1" max="10" value="2">
+                <span>Радиус обнаружения (клетки)</span>
+                <input type="number" name="detection_radius_cells" min="1" max="10" value="5">
             </label>
         </div>
         <div class="grid-three">
             <label class="field">
-                <span>Направление ветра</span>
+                <span>Направление ветра (°)</span>
                 <input type="number" name="wind_direction_deg" min="0" max="359" value="0">
             </label>
             <label class="field">
@@ -70,18 +71,25 @@
                 <input type="number" name="wind_speed_level" min="0" max="5" value="1">
             </label>
             <label class="field">
-                <span>Индекс очага на местности</span>
+                <span>Индекс очага (общая зона)</span>
                 <input type="number" name="incident_area_index" min="0" value="0">
             </label>
         </div>
         <div class="grid-two">
             <label class="field">
-                <span>Этаж очага на объекте</span>
+                <span>Этаж очага (объект)</span>
                 <input type="text" name="incident_object_level_code" value="F1" maxlength="16">
             </label>
             <label class="field">
-                <span>Индекс очага на объекте</span>
+                <span>Индекс очага (объект)</span>
                 <input type="number" name="incident_object_index" min="0" value="0">
+            </label>
+        </div>
+        <div class="grid-two">
+            <label class="field" style="grid-column: span 2;">
+                <span>Ваше имя (позывной)</span>
+                <input type="text" name="display_name" maxlength="64"
+                    placeholder="Оставьте пустым для имени по умолчанию">
             </label>
         </div>
         <div class="panel compact stack gap-s">

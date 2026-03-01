@@ -25,5 +25,11 @@ class ConnectionManager:
         for connection in list(self._connections.get(session_code, set())):
             await connection.send_json(message)
 
+    async def broadcast_except(self, session_code: str, message: dict[str, object], exclude: WebSocket) -> None:
+        """Broadcast to all clients EXCEPT the specified one (prevents self-notification loops)."""
+        for connection in list(self._connections.get(session_code, set())):
+            if connection is not exclude:
+                await connection.send_json(message)
+
     def count(self, session_code: str) -> int:
         return len(self._connections.get(session_code, set()))

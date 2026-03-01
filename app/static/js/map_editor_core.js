@@ -9,12 +9,12 @@ export async function postJson(url, csrfToken, payload = {}, method = "POST") {
         body: JSON.stringify(payload),
     });
     if (!response.ok) {
-        let detail = `Ошибка запроса (${response.status})`;
+        let detail = `Request failed (${response.status})`;
         try {
             const data = await response.json();
             detail = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail || data);
         } catch (_error) {
-            // Ignore parse errors and keep the fallback message.
+            // Keep fallback detail.
         }
         throw new Error(detail);
     }

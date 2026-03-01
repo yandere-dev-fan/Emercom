@@ -1,18 +1,18 @@
 {% extends "base_v2.html" %}
 
-{% block title %}ТП Тренажер{% endblock %}
+{% block title %}ТП-СИМУЛЯТОР{% endblock %}
 
 {% block content %}
-<section class="panel stack gap-m">
+<section class="panel stack gap-m landing-hero">
     <div>
-        <p class="eyebrow">Этап 2</p>
-        <h1>Тренажер диспетчер -> выезд -> РТП</h1>
-        <p class="lead">Сначала подготовьте карты, затем создайте сессию и раздайте ключ участникам.</p>
+        <p class="eyebrow">Тренировочный комплекс</p>
+        <h1>ТП-СИМУЛЯТОР</h1>
+        <p class="lead">Подготовьте карты, создайте сессию и передайте ключ участникам.</p>
     </div>
     <div class="grid-three">
         <a class="button primary xl" href="{{ url_for('template_library_page') }}">Создать карту</a>
         <a class="button primary xl" href="{{ url_for('new_session_page') }}">Создать сессию</a>
-        <a class="button primary xl" href="{{ url_for('join_session_page') }}">Присоединиться</a>
+        <a class="button primary xl" href="{{ url_for('join_session_page') }}">Войти в сессию</a>
     </div>
 </section>
 {% endblock %}

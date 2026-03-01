@@ -1,26 +1,26 @@
 {% extends "base_v2.html" %}
 
-{% block title %}Сессия создана | ТП Тренажер{% endblock %}
+{% block title %}Сессия создана | ТП-СИМУЛЯТОР{% endblock %}
 
 {% block content %}
 <section class="panel stack gap-m">
     <div>
         <p class="eyebrow">Сессия создана</p>
         <h1>{{ session.session_code }}</h1>
-        <p class="lead">Сохраните ключ подключения. Все участники входят только по нему.</p>
+        <p class="lead">Сохраните ключ доступа. Все участники входят в сессию только по этому ключу.</p>
     </div>
     <div class="key-box">
-        <span class="key-label">Ключ подключения</span>
+        <span class="key-label">Ключ доступа</span>
         <code>{{ join_key }}</code>
     </div>
     <div class="button-row">
-        <a class="button primary" href="{{ session_url }}">Перейти в сессию</a>
-        <a class="button" href="{{ join_link }}">Ссылка входа</a>
+        <a class="button primary" href="{{ session_url }}">Открыть сессию</a>
+        <a class="button" href="{{ join_link }}">Ссылка для входа</a>
     </div>
     {% if join_qr_data_uri %}
     <div class="panel compact stack gap-s">
         <h2>QR-код</h2>
-        <img src="{{ join_qr_data_uri }}" alt="QR код для входа" style="max-width: 220px;">
+        <img src="{{ join_qr_data_uri }}" alt="QR-код для входа в сессию" style="max-width: 220px;">
     </div>
     {% endif %}
 </section>

@@ -83,6 +83,7 @@ def create_session(
     incident_object_level_code: str = Form(default="F1"),
     incident_object_index: int = Form(default=0),
     enabled_vehicle_types: list[str] = Form(...),
+    display_name: str | None = Form(default=None),
 ) -> Response:
     join_page_url = str(request.url_for("join_session_page"))
     try:
@@ -98,6 +99,7 @@ def create_session(
             incident_object_level_code=incident_object_level_code,
             incident_object_index=incident_object_index,
             enabled_vehicle_types=enabled_vehicle_types,
+            display_name=display_name,
         )
     except ValidationError as exc:
         template_maps = list_template_maps(db)
@@ -174,11 +176,13 @@ async def join_session_submit(
     db: DbSession,
     settings: AppSettings,
     join_key: str = Form(...),
+    display_name: str | None = Form(default=None),
 ) -> Response:
     try:
         training_session, auth_session, raw_token = await join_training_session(
             db,
             join_key=join_key.strip(),
+            display_name=display_name,
             ip_address=request.client.host if request.client else None,
             limiter=request.app.state.join_key_limiter,
             settings=settings,

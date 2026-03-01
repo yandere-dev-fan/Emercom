@@ -33,17 +33,19 @@ async def session_socket(websocket: WebSocket, session_code: str) -> None:
             return
 
         await manager.connect(session_code, websocket)
-        await manager.broadcast(
+        await manager.broadcast_except(
             session_code,
             {"type": "participant_joined", "participant_id": auth_session.participant_id, "role": auth_session.role},
+            exclude=websocket,
         )
-        await manager.broadcast(
+        await manager.broadcast_except(
             session_code,
             {
                 "type": "presence_state",
                 "session_code": session_code,
                 "connected": manager.count(session_code),
             },
+            exclude=websocket,
         )
         while True:
             await websocket.receive_text()

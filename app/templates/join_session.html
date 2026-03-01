@@ -1,21 +1,25 @@
-{% extends "base.html" %}
+{% extends "base_v2.html" %}
 
-{% block title %}Вход в сессию | ТП Тренажер{% endblock %}
+{% block title %}Войти в сессию | ТП-СИМУЛЯТОР{% endblock %}
 
 {% block content %}
 <section class="panel stack gap-m">
     <div>
-        <h1>Присоединиться к сессии</h1>
-        <p class="lead">Вставьте ключ сессии. После проверки сервер создаст временную сессию для этого браузера.</p>
+        <h1>Войти в сессию</h1>
+        <p class="lead">Вставьте ключ доступа. После проверки будет создана временная сессия в браузере.</p>
     </div>
     {% if error %}
     <div class="error-box">{{ error }}</div>
     {% endif %}
     <form method="post" action="/sessions/join" class="stack gap-m">
         <label class="field">
-            <span>Ключ сессии</span>
+            <span>Ключ доступа</span>
             <textarea name="join_key" rows="3" required
                 placeholder="Вставьте ключ">{{ join_key_prefill or '' }}</textarea>
+        </label>
+        <label class="field">
+            <span>Ваше имя (позывной)</span>
+            <input type="text" name="display_name" maxlength="64" placeholder="Оставьте пустым для имени по умолчанию">
         </label>
         <button class="button primary xl" type="submit">Войти в сессию</button>
     </form>

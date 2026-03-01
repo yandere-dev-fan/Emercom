@@ -15,7 +15,7 @@ from app.api.schemas import (
     NozzleUpdateRequest,
     ParticipantRoleUpdateRequest,
     ScenarioEventCreateRequest,
-    VehicleDriveIntentRequest,
+    VehicleObjectStepRequest,
     VehicleRouteRequest,
 )
 from app.config import Settings, get_settings
@@ -24,15 +24,15 @@ from app.db.session import get_db
 from app.domain.session_flow_v2 import (
     apply_vehicle_object_drive,
     assign_participant_role,
-    create_dispatch_order,
     create_chat_message,
+    create_dispatch_order,
     create_hose,
     create_nozzle,
     create_runtime_event,
     get_current_auth_session,
-    list_chat_messages,
     get_session_state_payload,
     get_session_with_related,
+    list_chat_messages,
     mark_dispatcher_incident_guess,
     start_training_drill,
     update_hose,
@@ -55,13 +55,20 @@ def _load_context(
 ) -> tuple[AuthSession, TrainingSession]:
     auth_session = get_current_auth_session(db, request.cookies.get(settings.session_cookie_name))
     if auth_session is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Требуется авторизация.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required.")
     training_session = get_session_with_related(db, session_code)
     if training_session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сессия не найдена.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session was not found.")
     if training_session.id != auth_session.training_session_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступ запрещён.")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
     return auth_session, training_session
+
+
+async def _broadcast_notice(request: Request, session_code: str, notice: dict[str, object] | None) -> None:
+    if notice is None:
+        return
+    await request.app.state.ws_manager.broadcast(session_code, {"type": "chat_message_created", "message": notice})
+    await request.app.state.ws_manager.broadcast(session_code, {"type": "system_notice", "message": notice["body"]})
 
 
 @router.get("/{session_code}/state")
@@ -74,11 +81,6 @@ def get_session_state(
     auth_session, training_session = _load_context(request, db, settings, session_code)
     payload = get_session_state_payload(training_session, viewer_role=auth_session.role)
     payload["current_role"] = auth_session.role
-    payload["scenario"] = {
-        "incident_revealed": training_session.scenario_state.incident_revealed if training_session.scenario_state else False,
-        "dispatcher_guess_index": training_session.scenario_state.dispatcher_guess_index if training_session.scenario_state else None,
-        "dispatcher_guess_correct": training_session.scenario_state.dispatcher_guess_correct if training_session.scenario_state else None,
-    }
     return payload
 
 
@@ -124,10 +126,7 @@ async def post_start_session(
         ip_address=request.client.host if request.client else None,
     )
     request.app.state.runtime_manager.start(training_session)
-    await request.app.state.ws_manager.broadcast(
-        session_code,
-        {"type": "session_phase_changed", "status": scenario_state.status},
-    )
+    await request.app.state.ws_manager.broadcast(session_code, {"type": "session_phase_changed", "status": scenario_state.status})
     return {"ok": True, "status": scenario_state.status}
 
 
@@ -170,21 +169,14 @@ async def post_dispatcher_mark_incident(
         guess_index=payload.guess_index,
         ip_address=request.client.host if request.client else None,
     )
-    await request.app.state.ws_manager.broadcast(
-        session_code,
-        {
-            "type": "session_phase_changed",
-            "status": scenario_state.status,
-            "dispatcher_guess_index": scenario_state.dispatcher_guess_index,
-            "dispatcher_guess_correct": scenario_state.dispatcher_guess_correct,
-        },
-    )
-    return {
-        "ok": True,
+    body = {
+        "type": "session_phase_changed",
         "status": scenario_state.status,
         "dispatcher_guess_index": scenario_state.dispatcher_guess_index,
         "dispatcher_guess_correct": scenario_state.dispatcher_guess_correct,
     }
+    await request.app.state.ws_manager.broadcast(session_code, body)
+    return {"ok": True, **body}
 
 
 @router.post("/{session_code}/dispatch/orders")
@@ -202,12 +194,14 @@ async def post_dispatch_order(
         training_session=training_session,
         auth_session=auth_session,
         counts=payload.counts,
+        spawn_index=payload.spawn_index,
         ip_address=request.client.host if request.client else None,
     )
     await request.app.state.ws_manager.broadcast(
         session_code,
         {"type": "vehicle_path_updated", "status": result["status"], "counts": payload.counts, "vehicle_ids": result["vehicle_ids"]},
     )
+    await _broadcast_notice(request, session_code, result.get("system_message"))
     return {"ok": True, **result}
 
 
@@ -263,7 +257,7 @@ async def post_vehicle_object_route(
 ) -> dict[str, object]:
     auth_session, training_session = _load_context(request, db, settings, session_code)
     await validate_csrf(request, auth_session, settings)
-    vehicle = update_vehicle_object_route(
+    result = update_vehicle_object_route(
         db,
         training_session=training_session,
         auth_session=auth_session,
@@ -273,42 +267,50 @@ async def post_vehicle_object_route(
     )
     await request.app.state.ws_manager.broadcast(
         session_code,
-        {"type": "vehicle_state_changed", "vehicle_id": vehicle.id, "status": vehicle.status, "route_json": vehicle.route_json},
+        {
+            "type": "vehicle_path_updated",
+            "vehicle_id": result["vehicle_id"],
+            "status": result["status"],
+            "applied_path": result["applied_path"],
+            "blocked_at": result["blocked_at"],
+        },
     )
-    return {"ok": True, "vehicle_id": vehicle.id, "status": vehicle.status}
+    await _broadcast_notice(request, session_code, result.get("notice"))
+    return {"ok": True, **result}
 
 
 @router.post("/{session_code}/vehicles/{vehicle_id}/object-drive")
 async def post_vehicle_object_drive(
     session_code: str,
     vehicle_id: str,
-    payload: VehicleDriveIntentRequest,
+    payload: VehicleObjectStepRequest,
     request: Request,
     db: DbSession,
     settings: AppSettings,
 ) -> dict[str, object]:
     auth_session, training_session = _load_context(request, db, settings, session_code)
     await validate_csrf(request, auth_session, settings)
-    vehicle = apply_vehicle_object_drive(
+    result = apply_vehicle_object_drive(
         db,
         training_session=training_session,
         auth_session=auth_session,
         vehicle_id=vehicle_id,
-        heading_deg=payload.heading_deg,
-        speed_mps=payload.speed_mps,
+        direction=payload.direction,
         ip_address=request.client.host if request.client else None,
     )
     await request.app.state.ws_manager.broadcast(
         session_code,
         {
-            "type": "vehicle_state_changed",
-            "vehicle_id": vehicle.id,
-            "status": vehicle.status,
-            "heading_deg": vehicle.heading_deg,
-            "speed_mps": vehicle.speed_mps,
+            "type": "vehicle_path_updated",
+            "vehicle_id": result["vehicle_id"],
+            "status": result["status"],
+            "position_x": result["position_x"],
+            "position_y": result["position_y"],
+            "blocked": result["blocked"],
         },
     )
-    return {"ok": True, "vehicle_id": vehicle.id, "status": vehicle.status}
+    await _broadcast_notice(request, session_code, result.get("notice"))
+    return {"ok": True, **result}
 
 
 @router.post("/{session_code}/hoses")

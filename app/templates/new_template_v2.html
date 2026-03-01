@@ -1,13 +1,13 @@
 {% extends "base_v2.html" %}
 
-{% block title %}Новая карта | ТП Тренажер{% endblock %}
+{% block title %}Новая карта | ТП-СИМУЛЯТОР{% endblock %}
 
 {% block content %}
 <section class="panel stack gap-m">
     <div>
         <p class="eyebrow">Создание карты</p>
         <h1>Создать шаблон карты</h1>
-        <p class="lead">Карта сохраняется как шаблон. Для объекта можно добавлять этажи уже в редакторе.</p>
+        <p class="lead">Шаблоны хранятся в библиотеке. Для карт объектов этажи можно добавить позже в редакторе.</p>
     </div>
     {% if error %}
     <div class="error-box">{{ error }}</div>
@@ -21,14 +21,14 @@
             <label class="field">
                 <span>Тип карты</span>
                 <select name="kind">
-                    <option value="area">Местность</option>
+                    <option value="area">Общая зона</option>
                     <option value="object">Объект</option>
                 </select>
             </label>
             <label class="field">
                 <span>Категория</span>
                 <select name="map_type">
-                    <option value="city">Город</option>
+                    <option value="city">Городская</option>
                     <option value="private">Частный сектор</option>
                     <option value="industrial">Промышленная</option>
                     <option value="mixed">Смешанная</option>
@@ -37,15 +37,15 @@
         </div>
         <div class="grid-three">
             <label class="field">
-                <span>Ширина</span>
+                <span>Ширина (клетки)</span>
                 <input type="number" name="width" min="1" max="256" value="48">
             </label>
             <label class="field">
-                <span>Высота</span>
+                <span>Высота (клетки)</span>
                 <input type="number" name="height" min="1" max="256" value="48">
             </label>
             <label class="field">
-                <span>Размер клетки (px)</span>
+                <span>Размер клетки (пкс)</span>
                 <input type="number" name="cell_size_px" min="8" max="64" value="16">
             </label>
         </div>

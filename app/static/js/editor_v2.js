@@ -1,7 +1,10 @@
+import { connectSessionSocket, postJson } from "./map_editor_core.js";
+import { createObjectTacticalOverlay } from "./object_tactical_overlay.js";
+
 const root = document.getElementById("editor-root");
 
 if (!root) {
-    throw new Error("Корневой элемент редактора не найден.");
+    throw new Error("Editor root element was not found.");
 }
 
 const state = {
@@ -17,9 +20,9 @@ const state = {
     editorUrlPattern: root.dataset.editorUrlPattern || "/maps/{id}",
     wsEnabled: root.dataset.wsEnabled === "true",
     canEdit: root.dataset.canEdit === "true" || ["admin", "instructor", "host_admin"].includes(root.dataset.role),
-    canReorder: root.dataset.canReorder === "true",
     canCreateObjectMap: root.dataset.canCreateObjectMap === "true",
     map: null,
+    runtimeOverlay: null,
     activeTool: "pencil",
     activeLevelId: null,
     activeLayerKey: "ground",
@@ -33,6 +36,8 @@ const state = {
     undoStack: [],
     redoStack: [],
     ws: null,
+    selectedVehicleId: null,
+    previewPath: [],
 };
 
 const elements = {
@@ -56,67 +61,46 @@ const elements = {
 const canvasCtx = elements.canvas.getContext("2d");
 const miniCtx = elements.miniCanvas.getContext("2d");
 
+const overlay = createObjectTacticalOverlay({
+    getRuntimeOverlay: () => state.runtimeOverlay,
+    getCellSize: () => currentCellSize(),
+    getActiveLevelCode: () => activeLevel()?.code || null,
+});
+
 const qs = (selector) => document.querySelector(selector);
 const qsa = (selector) => Array.from(document.querySelectorAll(selector));
 
 function setStatus(message) {
-    elements.statusLine.textContent = message;
+    if (elements.statusLine) {
+        elements.statusLine.textContent = message;
+    }
 }
 
 function activeLevel() {
-    return state.map.levels.find((level) => level.id === state.activeLevelId);
-}
-
-function orderedLayers(level = activeLevel()) {
-    return [...level.layers].sort((left, right) => left.z_index - right.z_index);
-}
-
-function refreshActiveLayer() {
-    const level = activeLevel();
-    if (!level) {
-        state.activeLayerKey = "ground";
-        return;
-    }
-    const layer = level.layers.find((item) => item.layer_key === state.activeLayerKey);
-    if (!layer) {
-        state.activeLayerKey = orderedLayers(level)[0].layer_key;
-    }
+    return state.map?.levels.find((level) => level.id === state.activeLevelId) || null;
 }
 
 function activeLayer() {
     const level = activeLevel();
-    return level.layers.find((layer) => layer.layer_key === state.activeLayerKey);
+    if (!level) {
+        return null;
+    }
+    return level.layers.find((layer) => layer.layer_key === state.activeLayerKey) || null;
 }
 
-function tileDefinitions(layerKey) {
-    return state.map.palette_manifest[layerKey] || [];
+function orderedLayers(level = activeLevel()) {
+    return level ? [...level.layers].sort((left, right) => left.z_index - right.z_index) : [];
 }
 
-function layerLabel(layerKey) {
-    const labels = {
-        ground: "Покрытие",
-        objects: "Объекты",
-        buildings: "Здания",
-        effects_fire: "Огонь",
-        effects_smoke: "Дым",
-        markers: "Маркеры",
-    };
-    return labels[layerKey] || layerKey;
+function currentCellSize() {
+    return Math.max(1, Math.floor((state.map?.cell_size_px || 1) * state.zoom));
 }
 
-function tileColor(layerKey, code) {
-    const found = tileDefinitions(layerKey).find((item) => item.code === code);
-    return found ? found.color : "transparent";
-}
-
-function tileLabel(layerKey, code) {
-    const found = tileDefinitions(layerKey).find((item) => item.code === code);
-    return found ? found.label : `Код ${code}`;
-}
-
-function updateVersion(version) {
-    state.map.version = version;
-    elements.version.textContent = String(version);
+function isRtpTacticalMode() {
+    return state.mode === "session"
+        && state.role === "rtp"
+        && state.mapKind === "object"
+        && Boolean(state.runtimeOverlay?.tactical_permissions?.can_route_vehicle);
 }
 
 function ensureArrays() {
@@ -133,163 +117,101 @@ function ensureArrays() {
     });
 }
 
-function updateSelectedTileLabel() {
-    const current = tileDefinitions(state.activeLayerKey).find((tile) => tile.code === state.selectedTileValue);
-    elements.selectedTileLabel.textContent = current ? `${current.label} (${current.code})` : "Ничего";
+function tileDefinitions(layerKey) {
+    return state.map?.palette_manifest?.[layerKey] || [];
 }
 
-function getBuildingSelectionInfo() {
-    if (!elements.selectedBuilding || !state.selectedCell || state.selectedCell.levelId !== state.activeLevelId) {
-        return null;
-    }
-    const level = activeLevel();
-    const buildingsLayer = level.layers.find((layer) => layer.layer_key === "buildings");
-    if (!buildingsLayer) {
-        return null;
-    }
-    const buildingCode = buildingsLayer.cells[state.selectedCell.index] || 0;
-    if (buildingCode === 0) {
-        return null;
-    }
-    const x = state.selectedCell.index % state.map.width;
-    const y = Math.floor(state.selectedCell.index / state.map.width);
-    return {
-        levelId: state.selectedCell.levelId,
-        index: state.selectedCell.index,
-        code: buildingCode,
-        label: tileLabel("buildings", buildingCode),
-        x,
-        y,
+function layerLabel(layerKey) {
+    const labels = {
+        ground: "Ground",
+        objects: "Objects",
+        buildings: "Buildings",
+        floor: "Floor",
+        walls: "Walls",
+        openings: "Openings",
+        interior: "Interior",
+        effects_fire: "Fire",
+        effects_smoke: "Smoke",
+        markers: "Markers",
     };
+    return labels[layerKey] || layerKey;
 }
 
-function updateObjectMapControls() {
-    if (!elements.selectedBuilding || !elements.createObjectMapBtn) {
-        return;
-    }
-    const selection = getBuildingSelectionInfo();
-    if (!selection) {
-        elements.selectedBuilding.textContent = "Выберите клетку здания на карте.";
-        elements.createObjectMapBtn.disabled = true;
-        return;
-    }
-    elements.selectedBuilding.textContent = `Выбрано: ${selection.label} в точке [${selection.x}, ${selection.y}].`;
-    elements.createObjectMapBtn.disabled = !state.canCreateObjectMap;
+function tileColor(layerKey, code) {
+    const item = tileDefinitions(layerKey).find((entry) => entry.code === code);
+    return item ? item.color : "transparent";
 }
 
-function setSelectedCell(cell) {
-    if (!elements.selectedBuilding) {
-        return;
-    }
-    state.selectedCell = { levelId: state.activeLevelId, index: cell.index };
-    updateObjectMapControls();
-    renderCanvas();
+function tileLabel(layerKey, code) {
+    const item = tileDefinitions(layerKey).find((entry) => entry.code === code);
+    return item ? item.label : `Code ${code}`;
 }
 
-async function fetchMap() {
-    const response = await fetch(state.apiMapBase, { credentials: "same-origin" });
-    if (!response.ok) {
-        throw new Error("Не удалось загрузить карту.");
+function updateVersion(version) {
+    state.map.version = version;
+    if (elements.version) {
+        elements.version.textContent = String(version);
     }
-    const previousLevelId = state.activeLevelId;
-    state.map = await response.json();
-    ensureArrays();
-    state.activeLevelId = state.map.levels.some((level) => level.id === previousLevelId)
-        ? previousLevelId
-        : state.map.levels[0].id;
-    refreshActiveLayer();
-    state.selectedTileValue = 1;
-    renderLevelList();
-    renderLayerList();
-    renderPalette();
-    updateObjectMapControls();
-    renderCanvas();
-    await fetchSnapshots();
+}
+
+function updateSelectedTileLabel() {
+    if (!elements.selectedTileLabel) {
+        return;
+    }
+    const current = tileDefinitions(state.activeLayerKey).find((tile) => tile.code === state.selectedTileValue);
+    elements.selectedTileLabel.textContent = current ? `${current.label} (${current.code})` : "None";
+}
+
+function refreshActiveLayer() {
+    const level = activeLevel();
+    if (!level) {
+        state.activeLayerKey = "ground";
+        return;
+    }
+    if (!level.layers.some((layer) => layer.layer_key === state.activeLayerKey)) {
+        state.activeLayerKey = orderedLayers(level)[0]?.layer_key || "ground";
+    }
 }
 
 function renderLevelList() {
+    if (!elements.levelList || !state.map) {
+        return;
+    }
     elements.levelList.innerHTML = "";
     state.map.levels.forEach((level) => {
         const row = document.createElement("label");
         row.className = "level-row";
-        row.innerHTML = `
-            <input type="radio" name="level" ${level.id === state.activeLevelId ? "checked" : ""}>
-            <span>${level.title}</span>
-        `;
+        row.innerHTML = `<input type="radio" name="level" ${level.id === state.activeLevelId ? "checked" : ""}><span>${level.title}</span>`;
         row.querySelector("input").addEventListener("change", () => {
             state.activeLevelId = level.id;
-            refreshActiveLayer();
             state.selectedCell = null;
+            refreshActiveLayer();
             renderLayerList();
             renderPalette();
-            updateObjectMapControls();
             renderCanvas();
         });
         elements.levelList.appendChild(row);
     });
 }
 
-async function reorderLayer(layerKey, direction) {
-    if (!state.canReorder) {
-        setStatus("Перестановка слоёв отключена для этого редактора.");
+function renderLayerList() {
+    if (!elements.layerList) {
         return;
     }
-    const response = await fetch(`${state.apiMapBase}/layers/reorder`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-CSRF-Token": state.csrfToken },
-        credentials: "same-origin",
-        body: JSON.stringify({
-            level_id: state.activeLevelId,
-            layer_key: layerKey,
-            direction,
-        }),
-    });
-    if (!response.ok) {
-        throw new Error("Не удалось изменить порядок слоёв.");
-    }
-    const payload = await response.json();
-    applyLayerOrder(payload.level_id, payload.layer_order);
-    updateVersion(payload.version);
-    renderLayerList();
-    renderCanvas();
-    setStatus(`Порядок слоёв обновлён. Версия ${payload.version}.`);
-}
-
-function renderLayerList() {
     elements.layerList.innerHTML = "";
-    const level = activeLevel();
-    const layers = orderedLayers(level);
-    layers.forEach((layer, index) => {
+    orderedLayers().forEach((layer) => {
         const row = document.createElement("div");
         row.className = "layer-row";
         row.innerHTML = `
             <input type="radio" name="layer" ${layer.layer_key === state.activeLayerKey ? "checked" : ""}>
             <span>${layerLabel(layer.layer_key)}</span>
-            <button type="button" class="button layer-move move-up" title="Выше" ${index === 0 || !state.canReorder ? "disabled" : ""}>^</button>
-            <button type="button" class="button layer-move move-down" title="Ниже" ${index === layers.length - 1 || !state.canReorder ? "disabled" : ""}>v</button>
-            <input type="checkbox" class="small-toggle visibility" ${layer.visible ? "checked" : ""} title="Видимость">
-            <input type="checkbox" class="small-toggle locked" ${layer.locked ? "checked" : ""} title="Блокировка">
+            <input type="checkbox" class="small-toggle visibility" ${layer.visible ? "checked" : ""} title="Visible">
+            <input type="checkbox" class="small-toggle locked" ${layer.locked ? "checked" : ""} title="Locked">
         `;
         row.querySelector('input[type="radio"]').addEventListener("change", () => {
             state.activeLayerKey = layer.layer_key;
             state.selectedTileValue = 1;
             renderPalette();
-        });
-        row.querySelector(".move-up").addEventListener("click", async () => {
-            try {
-                await reorderLayer(layer.layer_key, "up");
-            } catch (error) {
-                console.error(error);
-                setStatus("Не удалось изменить порядок слоя.");
-            }
-        });
-        row.querySelector(".move-down").addEventListener("click", async () => {
-            try {
-                await reorderLayer(layer.layer_key, "down");
-            } catch (error) {
-                console.error(error);
-                setStatus("Не удалось изменить порядок слоя.");
-            }
         });
         row.querySelector(".visibility").addEventListener("change", (event) => {
             layer.visible = event.target.checked;
@@ -303,23 +225,26 @@ function renderLayerList() {
 }
 
 function renderPalette() {
+    if (!elements.paletteList) {
+        return;
+    }
     elements.paletteList.innerHTML = "";
     tileDefinitions(state.activeLayerKey).forEach((tile) => {
-        const row = document.createElement("button");
-        row.type = "button";
-        row.className = "palette-row";
-        row.innerHTML = `<span class="swatch" style="background:${tile.color}"></span><span>${tile.label}</span>`;
-        row.addEventListener("click", () => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "palette-row";
+        button.innerHTML = `<span class="swatch" style="background:${tile.color}"></span><span>${tile.label}</span>`;
+        button.addEventListener("click", () => {
             state.selectedTileValue = tile.code;
             updateSelectedTileLabel();
         });
-        elements.paletteList.appendChild(row);
+        elements.paletteList.appendChild(button);
     });
     updateSelectedTileLabel();
 }
 
 function resizeCanvas() {
-    const size = Math.max(1, Math.floor(state.map.cell_size_px * state.zoom));
+    const size = currentCellSize();
     elements.canvas.width = state.map.width * size;
     elements.canvas.height = state.map.height * size;
 }
@@ -330,10 +255,9 @@ function renderSelectionOutline(size) {
     }
     const x = state.selectedCell.index % state.map.width;
     const y = Math.floor(state.selectedCell.index / state.map.width);
-    const selection = getBuildingSelectionInfo();
-    canvasCtx.strokeStyle = selection ? "rgba(6, 214, 160, 0.9)" : "rgba(239, 131, 84, 0.9)";
-    canvasCtx.lineWidth = Math.max(2, Math.floor(size * 0.1));
-    canvasCtx.strokeRect(x * size + 1, y * size + 1, Math.max(size - 2, 1), Math.max(size - 2, 1));
+    canvasCtx.strokeStyle = "rgba(34, 197, 94, 0.95)";
+    canvasCtx.lineWidth = Math.max(2, Math.floor(size * 0.12));
+    canvasCtx.strokeRect(x * size + 1, y * size + 1, Math.max(1, size - 2), Math.max(1, size - 2));
 }
 
 function renderCanvas() {
@@ -341,56 +265,54 @@ function renderCanvas() {
         return;
     }
     resizeCanvas();
-    const size = Math.max(1, Math.floor(state.map.cell_size_px * state.zoom));
+    const size = currentCellSize();
     canvasCtx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
-    const level = activeLevel();
-    const layers = orderedLayers(level);
     for (let y = 0; y < state.map.height; y += 1) {
         for (let x = 0; x < state.map.width; x += 1) {
             const index = y * state.map.width + x;
-            layers
-                .filter((layer) => layer.visible)
-                .forEach((layer) => {
-                    const value = layer.cells[index];
-                    if (!value && layer.layer_key !== "ground") {
-                        return;
-                    }
-                    const color = tileColor(layer.layer_key, value);
-                    if (!color || color === "transparent") {
-                        return;
-                    }
-                    canvasCtx.fillStyle = color;
-                    canvasCtx.fillRect(x * size, y * size, size, size);
-                });
+            orderedLayers().filter((layer) => layer.visible).forEach((layer) => {
+                const value = layer.cells[index];
+                if (!value && layer.layer_key !== "ground") {
+                    return;
+                }
+                const color = tileColor(layer.layer_key, value);
+                if (!color || color === "transparent") {
+                    return;
+                }
+                canvasCtx.fillStyle = color;
+                canvasCtx.fillRect(x * size, y * size, size, size);
+            });
             if (state.showGrid) {
-                canvasCtx.strokeStyle = "rgba(255,255,255,0.07)";
+                canvasCtx.strokeStyle = "rgba(255,255,255,0.06)";
                 canvasCtx.strokeRect(x * size, y * size, size, size);
             }
         }
     }
     renderSelectionOutline(size);
+    overlay.draw(canvasCtx, { selectedVehicleId: state.selectedVehicleId, previewPath: state.previewPath });
     renderMiniMap();
 }
 
 function renderMiniMap() {
+    if (!state.map) {
+        return;
+    }
     const scale = Math.min(elements.miniCanvas.width / state.map.width, elements.miniCanvas.height / state.map.height);
     miniCtx.clearRect(0, 0, elements.miniCanvas.width, elements.miniCanvas.height);
-    const level = activeLevel();
-    const layers = orderedLayers(level);
     for (let y = 0; y < state.map.height; y += 1) {
         for (let x = 0; x < state.map.width; x += 1) {
             const index = y * state.map.width + x;
-            let fill = "#101820";
-            for (const layer of layers) {
+            let color = "#0f172a";
+            for (const layer of orderedLayers()) {
                 if (!layer.visible) {
                     continue;
                 }
-                const color = tileColor(layer.layer_key, layer.cells[index]);
-                if (color && color !== "transparent") {
-                    fill = color;
+                const layerColor = tileColor(layer.layer_key, layer.cells[index]);
+                if (layerColor && layerColor !== "transparent") {
+                    color = layerColor;
                 }
             }
-            miniCtx.fillStyle = fill;
+            miniCtx.fillStyle = color;
             miniCtx.fillRect(x * scale, y * scale, Math.ceil(scale), Math.ceil(scale));
         }
     }
@@ -398,7 +320,7 @@ function renderMiniMap() {
 
 function cellFromEvent(event) {
     const rect = elements.canvas.getBoundingClientRect();
-    const size = Math.max(1, Math.floor(state.map.cell_size_px * state.zoom));
+    const size = currentCellSize();
     const x = Math.floor((event.clientX - rect.left) / size);
     const y = Math.floor((event.clientY - rect.top) / size);
     if (x < 0 || y < 0 || x >= state.map.width || y >= state.map.height) {
@@ -407,8 +329,23 @@ function cellFromEvent(event) {
     return { x, y, index: y * state.map.width + x };
 }
 
-function newPending() {
-    return { before: new Map(), after: new Map() };
+function setSelectedCell(cell) {
+    state.selectedCell = { levelId: state.activeLevelId, index: cell.index };
+    renderCanvas();
+}
+
+function beginPending() {
+    if (!state.canEdit) {
+        setStatus("Read-only mode.");
+        return false;
+    }
+    const layer = activeLayer();
+    if (!layer || layer.locked) {
+        setStatus("Active layer is locked.");
+        return false;
+    }
+    state.pending = { before: new Map(), after: new Map() };
+    return true;
 }
 
 function writeToPending(index, value) {
@@ -421,7 +358,7 @@ function writeToPending(index, value) {
 }
 
 function applyBrush(x, y, value) {
-    const brush = Number(elements.brushSize.value);
+    const brush = Number(elements.brushSize?.value || 1);
     const radius = Math.floor((brush - 1) / 2);
     for (let offsetY = 0; offsetY < brush; offsetY += 1) {
         for (let offsetX = 0; offsetX < brush; offsetX += 1) {
@@ -436,32 +373,7 @@ function applyBrush(x, y, value) {
 }
 
 function linePoints(start, end) {
-    const points = [];
-    let x0 = start.x;
-    let y0 = start.y;
-    const x1 = end.x;
-    const y1 = end.y;
-    const dx = Math.abs(x1 - x0);
-    const sx = x0 < x1 ? 1 : -1;
-    const dy = -Math.abs(y1 - y0);
-    const sy = y0 < y1 ? 1 : -1;
-    let err = dx + dy;
-    while (true) {
-        points.push({ x: x0, y: y0 });
-        if (x0 === x1 && y0 === y1) {
-            break;
-        }
-        const e2 = 2 * err;
-        if (e2 >= dy) {
-            err += dy;
-            x0 += sx;
-        }
-        if (e2 <= dx) {
-            err += dx;
-            y0 += sy;
-        }
-    }
-    return points;
+    return overlay.cellLine(start.x, start.y, end.x, end.y);
 }
 
 function fillArea(startIndex) {
@@ -521,70 +433,36 @@ async function submitPending({ recordHistory = true } = {}) {
         renderCanvas();
         return;
     }
-    const body = {
-        base_version: state.map.version,
-        client_event_id: crypto.randomUUID(),
-        changes: [{ level_id: state.activeLevelId, layer_key: state.activeLayerKey, writes }],
-    };
     try {
-        const response = await fetch(`${state.apiMapBase}/patches`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-CSRF-Token": state.csrfToken },
-            credentials: "same-origin",
-            body: JSON.stringify(body),
+        const payload = await postJson(`${state.apiMapBase}/patches`, state.csrfToken, {
+            base_version: state.map.version,
+            client_event_id: crypto.randomUUID(),
+            changes: [{ level_id: state.activeLevelId, layer_key: state.activeLayerKey, writes }],
         });
-        if (!response.ok) {
-            throw new Error("Не удалось сохранить изменения.");
-        }
-        const payload = await response.json();
         updateVersion(payload.version);
         if (recordHistory) {
             state.undoStack.push({ levelId: state.activeLevelId, layerKey: state.activeLayerKey, before, after: writes });
             state.redoStack = [];
         }
-        updateObjectMapControls();
-        setStatus(`Изменения сохранены. Версия ${payload.version}.`);
+        setStatus(`Saved version ${payload.version}.`);
     } catch (error) {
-        console.error(error);
         await fetchMap();
-        setStatus("Карта перезагружена после конфликта версии или ошибки валидации.");
+        setStatus(error.message);
     } finally {
         state.pending = null;
         renderCanvas();
     }
 }
 
-function beginPending() {
-    if (!state.canEdit) {
-        setStatus("Редактор открыт только для просмотра.");
-        return false;
-    }
-    const layer = activeLayer();
-    if (layer.locked) {
-        setStatus("Активный слой заблокирован.");
-        return false;
-    }
-    state.pending = newPending();
-    return true;
-}
-
 async function performUndo(entry, direction) {
-    const level = state.map.levels.find((item) => item.id === entry.levelId);
-    if (!level) {
-        return;
-    }
-    const layer = level.layers.find((item) => item.layer_key === entry.layerKey);
-    if (!layer) {
-        return;
-    }
     state.activeLevelId = entry.levelId;
     state.activeLayerKey = entry.layerKey;
     renderLevelList();
     renderLayerList();
     renderPalette();
-    state.pending = newPending();
-    const targetWrites = direction === "undo" ? entry.before : entry.after;
-    targetWrites.forEach((write) => writeToPending(write.index, write.value));
+    state.pending = { before: new Map(), after: new Map() };
+    const writes = direction === "undo" ? entry.before : entry.after;
+    writes.forEach((write) => writeToPending(write.index, write.value));
     await submitPending({ recordHistory: false });
     if (direction === "undo") {
         state.redoStack.push(entry);
@@ -594,17 +472,18 @@ async function performUndo(entry, direction) {
 }
 
 async function fetchSnapshots() {
+    if (!elements.snapshotList) {
+        return;
+    }
     const response = await fetch(`${state.apiMapBase}/snapshots`, { credentials: "same-origin" });
     if (!response.ok) {
+        elements.snapshotList.innerHTML = "";
         return;
     }
     const payload = await response.json();
     elements.snapshotList.innerHTML = "";
     if (!payload.items.length) {
-        const row = document.createElement("div");
-        row.className = "pill subtle";
-        row.textContent = "Снимков пока нет.";
-        elements.snapshotList.appendChild(row);
+        elements.snapshotList.innerHTML = '<div class="pill subtle">No snapshots yet.</div>';
         return;
     }
     payload.items.forEach((item) => {
@@ -617,118 +496,160 @@ async function fetchSnapshots() {
 
 async function createSnapshot() {
     if (!state.canEdit) {
-        setStatus("В режиме просмотра нельзя создавать снимки.");
+        setStatus("Read-only mode.");
         return;
     }
-    const label = window.prompt("Название снимка", `snapshot-${Date.now()}`);
+    const label = window.prompt("Snapshot label", `snapshot-${Date.now()}`);
     if (!label) {
         return;
     }
-    const response = await fetch(`${state.apiMapBase}/snapshots`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-CSRF-Token": state.csrfToken },
-        credentials: "same-origin",
-        body: JSON.stringify({ label }),
-    });
-    if (!response.ok) {
-        setStatus("Не удалось сохранить снимок.");
-        return;
-    }
-    setStatus("Снимок сохранён.");
+    await postJson(`${state.apiMapBase}/snapshots`, state.csrfToken, { label });
     await fetchSnapshots();
+    setStatus("Snapshot saved.");
 }
 
 async function importJson(file) {
-    try {
-        const text = await file.text();
-        const payload = JSON.parse(text);
-        const response = await fetch(state.importUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-CSRF-Token": state.csrfToken },
-            credentials: "same-origin",
-            body: JSON.stringify({ payload }),
-        });
-        if (!response.ok) {
-            setStatus("Не удалось импортировать файл.");
-            return;
-        }
-        const result = await response.json();
-        window.location.href = state.editorUrlPattern.replace("{id}", result.map_id);
-    } catch (error) {
-        console.error(error);
-        setStatus("Некорректный файл импорта.");
-    }
-}
-
-function applyLayerOrder(levelId, layerOrder) {
-    const level = state.map.levels.find((item) => item.id === levelId);
-    if (!level) {
-        return;
-    }
-    const layersByKey = new Map(level.layers.map((layer) => [layer.layer_key, layer]));
-    const reordered = [];
-    layerOrder.forEach((key, index) => {
-        const layer = layersByKey.get(key);
-        if (!layer) {
-            return;
-        }
-        layer.z_index = index + 1;
-        reordered.push(layer);
-        layersByKey.delete(key);
-    });
-    [...layersByKey.values()]
-        .sort((left, right) => left.z_index - right.z_index)
-        .forEach((layer) => {
-            layer.z_index = reordered.length + 1;
-            reordered.push(layer);
-        });
-    level.layers = reordered;
+    const text = await file.text();
+    const result = await postJson(state.importUrl, state.csrfToken, { payload: JSON.parse(text) });
+    window.location.href = state.editorUrlPattern.replace("{id}", result.map_id);
 }
 
 async function createObjectMapFromSelection() {
-    if (!state.canCreateObjectMap) {
-        setStatus("Создание карты объекта недоступно в этом редакторе.");
+    if (!state.canCreateObjectMap || !state.selectedCell) {
+        setStatus("Select a building cell first.");
         return;
     }
-    const selection = getBuildingSelectionInfo();
-    if (!selection) {
-        updateObjectMapControls();
-        setStatus("Сначала выберите клетку здания.");
-        return;
-    }
-    const response = await fetch(`${state.apiMapBase}/object-maps`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-CSRF-Token": state.csrfToken },
-        credentials: "same-origin",
-        body: JSON.stringify({
-            source_level_id: selection.levelId,
-            source_index: selection.index,
-        }),
+    const result = await postJson(`${state.apiMapBase}/object-maps`, state.csrfToken, {
+        source_level_id: state.activeLevelId,
+        source_index: state.selectedCell.index,
     });
+    window.location.href = state.editorUrlPattern.replace("{id}", result.map_id);
+}
+
+async function fetchMap() {
+    const response = await fetch(state.apiMapBase, { credentials: "same-origin" });
     if (!response.ok) {
-        setStatus("Не удалось создать карту объекта.");
+        throw new Error("Failed to load map.");
+    }
+    const previousLevelId = state.activeLevelId;
+    const payload = await response.json();
+    state.map = payload;
+    state.runtimeOverlay = payload.runtime_overlay || null;
+    ensureArrays();
+    state.activeLevelId = state.map.levels.some((level) => level.id === previousLevelId) ? previousLevelId : state.map.levels[0].id;
+    refreshActiveLayer();
+    renderLevelList();
+    renderLayerList();
+    renderPalette();
+    renderCanvas();
+    await fetchSnapshots();
+}
+
+function mergeRuntimeOverlayVehicle(vehiclePatch) {
+    if (!state.runtimeOverlay) {
         return;
     }
-    const payload = await response.json();
-    window.location.href = state.editorUrlPattern.replace("{id}", payload.map_id);
+    const vehicles = state.runtimeOverlay.vehicles || [];
+    const vehicle = vehicles.find((item) => item.id === vehiclePatch.id || item.id === vehiclePatch.vehicle_id);
+    if (!vehicle) {
+        return;
+    }
+    Object.assign(vehicle, vehiclePatch);
+}
+
+async function submitTacticalRoute(cell) {
+    if (!isRtpTacticalMode()) {
+        return;
+    }
+    const vehicle = overlay.findVehicle(state.selectedVehicleId);
+    if (!vehicle) {
+        return;
+    }
+    const routePoints = [{ x: cell.x, y: cell.y }];
+    const result = await postJson(
+        `/api/sessions/${state.sessionCode}/vehicles/${vehicle.id}/object-route`,
+        state.csrfToken,
+        { points: routePoints },
+    );
+    state.previewPath = (result.applied_path || []).map((point) => ({ x: point.x, y: point.y }));
+    renderCanvas();
+}
+
+async function submitTacticalStep(direction) {
+    if (!isRtpTacticalMode() || !state.selectedVehicleId) {
+        return;
+    }
+    const result = await postJson(
+        `/api/sessions/${state.sessionCode}/vehicles/${state.selectedVehicleId}/object-drive`,
+        state.csrfToken,
+        { direction },
+    );
+    mergeRuntimeOverlayVehicle({
+        id: result.vehicle_id,
+        position_x: result.position_x,
+        position_y: result.position_y,
+        status: result.status,
+    });
+    state.previewPath = [];
+    renderCanvas();
+}
+
+async function deployHoseFromSelection() {
+    if (!isRtpTacticalMode() || !state.selectedVehicleId) {
+        return;
+    }
+    const vehicle = overlay.findVehicle(state.selectedVehicleId);
+    if (!vehicle) {
+        return;
+    }
+    let polylinePoints = state.previewPath;
+    if (!polylinePoints.length) {
+        const startX = Math.round(vehicle.position_x);
+        const startY = Math.round(vehicle.position_y);
+        const endX = Math.min(state.map.width - 1, startX + 1);
+        polylinePoints = [{ x: startX, y: startY }, { x: endX, y: startY }];
+    }
+    const result = await postJson(
+        `/api/sessions/${state.sessionCode}/hoses`,
+        state.csrfToken,
+        { source_vehicle_id: state.selectedVehicleId, polyline_points: polylinePoints },
+    );
+    state.runtimeOverlay.hoses = [...(state.runtimeOverlay.hoses || []), result.hose];
+    renderCanvas();
+}
+
+async function activateNozzleFromSelection() {
+    if (!isRtpTacticalMode() || !state.selectedVehicleId) {
+        return;
+    }
+    const hoses = (state.runtimeOverlay?.hoses || []).filter((hose) => hose.source_vehicle_id === state.selectedVehicleId);
+    const hose = hoses.at(-1);
+    if (!hose) {
+        setStatus("Create a hose first.");
+        return;
+    }
+    const target = state.previewPath.at(-1) || hose.polyline_points.at(-1);
+    const result = await postJson(
+        `/api/sessions/${state.sessionCode}/nozzles`,
+        state.csrfToken,
+        { hose_id: hose.id, target_x: target.x, target_y: target.y, flow_lps: 5.0 },
+    );
+    state.runtimeOverlay.nozzles = [
+        ...(state.runtimeOverlay.nozzles || []).filter((item) => item.hose_id !== hose.id),
+        result.nozzle,
+    ];
+    renderCanvas();
 }
 
 function connectSocket() {
     if (!state.wsEnabled || !state.sessionCode) {
         return;
     }
-    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const url = `${protocol}://${window.location.host}/ws/sessions/${state.sessionCode}?csrf=${encodeURIComponent(state.csrfToken)}`;
-    state.ws = new WebSocket(url);
-    state.ws.addEventListener("message", async (event) => {
-        const payload = JSON.parse(event.data);
+    state.ws = connectSessionSocket(state.sessionCode, state.csrfToken, async (payload) => {
         if (payload.type === "map_patch_applied" && payload.map_id === state.mapId) {
             payload.changes.forEach((change) => {
                 const level = state.map.levels.find((item) => item.id === change.level_id);
-                if (!level) {
-                    return;
-                }
-                const layer = level.layers.find((item) => item.layer_key === change.layer_key);
+                const layer = level?.layers.find((item) => item.layer_key === change.layer_key);
                 if (!layer) {
                     return;
                 }
@@ -737,17 +658,35 @@ function connectSocket() {
                 });
             });
             updateVersion(payload.version);
-            updateObjectMapControls();
             renderCanvas();
         } else if (payload.type === "snapshot_created" && payload.map_id === state.mapId) {
             await fetchSnapshots();
-        } else if (payload.type === "layer_order_updated" && payload.map_id === state.mapId) {
-            applyLayerOrder(payload.level_id, payload.layer_order);
-            updateVersion(payload.version);
-            renderLayerList();
+        } else if (payload.type === "vehicle_path_updated") {
+            (payload.vehicles || []).forEach((vehiclePatch) => mergeRuntimeOverlayVehicle(vehiclePatch));
+            if (payload.vehicle_id) {
+                mergeRuntimeOverlayVehicle(payload);
+            }
             renderCanvas();
-        } else if (payload.type === "presence_state") {
-            setStatus(`Подключено участников: ${payload.connected}`);
+        } else if (payload.type === "hose_state_changed") {
+            if (state.runtimeOverlay) {
+                const hoses = [...(state.runtimeOverlay.hoses || [])];
+                const index = hoses.findIndex((item) => item.id === payload.hose.id);
+                if (index >= 0) {
+                    hoses[index] = payload.hose;
+                } else {
+                    hoses.push(payload.hose);
+                }
+                state.runtimeOverlay.hoses = hoses;
+                renderCanvas();
+            }
+        } else if (payload.type === "fire_state_changed") {
+            if (state.runtimeOverlay) {
+                const nozzles = [...(state.runtimeOverlay.nozzles || []).filter((item) => item.id !== payload.nozzle.id), payload.nozzle];
+                state.runtimeOverlay.nozzles = nozzles;
+                renderCanvas();
+            }
+        } else if (payload.type === "object_phase_unlocked") {
+            await fetchMap();
         }
     });
 }
@@ -760,52 +699,71 @@ function bindUi() {
             state.activeTool = button.dataset.tool;
         });
     });
-    qs("#undo-btn").addEventListener("click", async () => {
+    qs("#undo-btn")?.addEventListener("click", async () => {
         const entry = state.undoStack.pop();
         if (entry) {
             await performUndo(entry, "undo");
         }
     });
-    qs("#redo-btn").addEventListener("click", async () => {
+    qs("#redo-btn")?.addEventListener("click", async () => {
         const entry = state.redoStack.pop();
         if (entry) {
             await performUndo(entry, "redo");
         }
     });
-    qs("#zoom-in").addEventListener("click", () => {
+    qs("#zoom-in")?.addEventListener("click", () => {
         state.zoom = Math.min(4, state.zoom + 0.25);
         renderCanvas();
     });
-    qs("#zoom-out").addEventListener("click", () => {
+    qs("#zoom-out")?.addEventListener("click", () => {
         state.zoom = Math.max(0.5, state.zoom - 0.25);
         renderCanvas();
     });
-    qs("#toggle-grid").addEventListener("click", () => {
+    qs("#toggle-grid")?.addEventListener("click", () => {
         state.showGrid = !state.showGrid;
         renderCanvas();
     });
-    elements.snapshotBtn.addEventListener("click", createSnapshot);
-    if (!state.canEdit) {
-        elements.snapshotBtn.disabled = true;
-    }
-    if (elements.importJson) {
-        elements.importJson.addEventListener("change", async (event) => {
-            const file = event.target.files[0];
-            if (file) {
-                await importJson(file);
-            }
-        });
-    }
-    if (elements.createObjectMapBtn) {
-        elements.createObjectMapBtn.addEventListener("click", async () => {
+    elements.snapshotBtn?.addEventListener("click", () => createSnapshot().catch((error) => setStatus(error.message)));
+    elements.importJson?.addEventListener("change", async (event) => {
+        const file = event.target.files[0];
+        if (file) {
             try {
-                await createObjectMapFromSelection();
+                await importJson(file);
             } catch (error) {
-                console.error(error);
-                setStatus("Не удалось создать карту объекта.");
+                setStatus(error.message);
             }
-        });
-    }
+        }
+    });
+    elements.createObjectMapBtn?.addEventListener("click", () => createObjectMapFromSelection().catch((error) => setStatus(error.message)));
+    document.getElementById("rtp-hose-btn")?.addEventListener("click", () => deployHoseFromSelection().catch((error) => setStatus(error.message)));
+    document.getElementById("rtp-nozzle-btn")?.addEventListener("click", () => activateNozzleFromSelection().catch((error) => setStatus(error.message)));
+    document.addEventListener("keydown", (event) => {
+        if (!isRtpTacticalMode()) {
+            return;
+        }
+        if (event.key === "h" || event.key === "H") {
+            event.preventDefault();
+            deployHoseFromSelection().catch((error) => setStatus(error.message));
+            return;
+        }
+        if (event.key === "n" || event.key === "N") {
+            event.preventDefault();
+            activateNozzleFromSelection().catch((error) => setStatus(error.message));
+            return;
+        }
+        const directionByKey = {
+            ArrowUp: "up",
+            ArrowDown: "down",
+            ArrowLeft: "left",
+            ArrowRight: "right",
+        };
+        const direction = directionByKey[event.key];
+        if (!direction) {
+            return;
+        }
+        event.preventDefault();
+        submitTacticalStep(direction).catch((error) => setStatus(error.message));
+    });
 }
 
 elements.canvas.addEventListener("pointerdown", async (event) => {
@@ -813,12 +771,22 @@ elements.canvas.addEventListener("pointerdown", async (event) => {
     if (!cell) {
         return;
     }
-    if (elements.selectedBuilding) {
-        setSelectedCell(cell);
+    if (isRtpTacticalMode()) {
+        const vehicle = overlay.hitTestVehicle(cell.x, cell.y);
+        if (vehicle) {
+            state.selectedVehicleId = vehicle.id;
+            state.previewPath = [];
+            renderCanvas();
+            return;
+        }
+        if (state.selectedVehicleId) {
+            await submitTacticalRoute(cell);
+        }
+        return;
     }
-    const layer = activeLayer();
+    setSelectedCell(cell);
     if (state.activeTool === "picker") {
-        state.selectedTileValue = layer.cells[cell.index];
+        state.selectedTileValue = activeLayer()?.cells[cell.index] || 0;
         updateSelectedTileLabel();
         return;
     }
@@ -840,10 +808,7 @@ elements.canvas.addEventListener("pointerdown", async (event) => {
 });
 
 elements.canvas.addEventListener("pointermove", (event) => {
-    if (!state.pointerDown || !state.pending) {
-        return;
-    }
-    if (state.activeTool !== "pencil" && state.activeTool !== "eraser") {
+    if (!state.pointerDown || !state.pending || (state.activeTool !== "pencil" && state.activeTool !== "eraser")) {
         return;
     }
     const cell = cellFromEvent(event);
@@ -890,10 +855,10 @@ async function boot() {
     bindUi();
     await fetchMap();
     connectSocket();
-    setStatus(state.canEdit ? "Редактор готов." : "Режим просмотра.");
+    setStatus(state.canEdit ? "Editor ready." : "Viewer ready.");
 }
 
 boot().catch((error) => {
     console.error(error);
-    setStatus("Не удалось загрузить редактор.");
+    setStatus("Failed to load editor.");
 });

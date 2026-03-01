@@ -10,8 +10,8 @@ from app.api.schemas import ImportMapRequest, MapCreateRequest, MapMetadataUpdat
 from app.db.models import AuditEvent, MapDocument, MapLayer, MapLevel, MapSnapshot, TrainingSession
 from app.domain.map_codec import decode_cells, empty_cells, encode_cells
 from app.domain.tile_catalog_v3 import (
-    MAX_OBJECT_FLOORS,
     AREA_TILE_CATALOG,
+    MAX_OBJECT_FLOORS,
     default_levels_for_kind,
     layer_order_for_kind,
     max_code_for_layer,
@@ -80,7 +80,7 @@ def list_template_maps(db: Session) -> list[MapDocument]:
 
 def create_template_map(db: Session, *, payload: MapCreateRequest) -> MapDocument:
     if payload.kind == "object" and payload.parent_map_id:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="У шаблонной карты объекта не используется parent_map_id.")
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Template object maps do not accept parent_map_id.")
     map_document = MapDocument(
         scope="template",
         session_id=None,
@@ -104,9 +104,9 @@ def create_template_map(db: Session, *, payload: MapCreateRequest) -> MapDocumen
 
 def add_template_level(db: Session, *, map_document: MapDocument) -> MapLevel:
     if map_document.kind != "object":
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Этажи можно добавлять только у карты объекта.")
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Only object maps can add floors.")
     if len(map_document.levels) >= MAX_OBJECT_FLOORS:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Достигнут лимит этажей.")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Maximum floor limit reached.")
     next_floor = max((level.floor_number for level in map_document.levels), default=0) + 1
     level = _seed_level(
         map_document=map_document,
@@ -135,7 +135,7 @@ def apply_template_patch(db: Session, *, map_document: MapDocument, payload: Map
     if payload.base_version != map_document.version:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail={"message": "Версия карты не совпадает.", "current_version": map_document.version},
+            detail={"message": "Map version mismatch.", "current_version": map_document.version},
         )
 
     expected_count = map_document.width * map_document.height
@@ -149,7 +149,7 @@ def apply_template_patch(db: Session, *, map_document: MapDocument, payload: Map
     for change in payload.changes:
         layer = layers_by_key.get((change.level_id, change.layer_key))
         if layer is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Слой не найден.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Layer was not found.")
         cells = decoded_cache.get(layer.id)
         if cells is None:
             cells = decode_cells(layer.cells_blob, expected_count)
@@ -157,9 +157,9 @@ def apply_template_patch(db: Session, *, map_document: MapDocument, payload: Map
         writes_payload: list[dict[str, int]] = []
         for write in change.writes:
             if write.index >= expected_count:
-                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Индекс клетки вне диапазона.")
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Cell index is out of range.")
             if write.value > layer.max_code:
-                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Значение превышает допустимый максимум слоя.")
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Tile value exceeds the layer maximum.")
             cells[write.index] = write.value
             writes_payload.append({"index": write.index, "value": write.value})
         applied_changes.append({"level_id": change.level_id, "layer_key": change.layer_key, "writes": writes_payload})
@@ -318,7 +318,7 @@ def _resolve_template_object_map_title(
     source_level_id: str | None,
     source_index: int | None,
 ) -> str:
-    base_title = f"{parent_map.title} / Объектовая карта"
+    base_title = f"{parent_map.title} / Object Map"
     if source_level_id is None or source_index is None:
         return base_title
 

@@ -1,22 +1,45 @@
 <section class="panel compact stack gap-s">
-    <h2>Панель создателя</h2>
+    <div class="row spread align-center">
+        <h2>Панель руководителя</h2>
+        <span class="pill subtle">Общая и объектная карты обновляются в реальном времени.</span>
+    </div>
+    <div class="runtime-map-grid-double">
+        <div class="runtime-map-panel">
+            <div class="row spread align-center">
+                <strong>Общая карта</strong>
+                <span class="muted">Скрытая зона пожара видна только руководителю.</span>
+            </div>
+            <div class="canvas-wrap runtime-canvas-wrap">
+                <canvas id="instructor-area-canvas" class="runtime-map-canvas" width="960" height="640"></canvas>
+            </div>
+        </div>
+        <div class="runtime-map-panel">
+            <div class="row spread align-center">
+                <strong>Карта объекта</strong>
+                <span class="muted">Распространение огня отображается на карте объекта.</span>
+            </div>
+            <div class="canvas-wrap runtime-canvas-wrap">
+                <canvas id="instructor-object-canvas" class="runtime-map-canvas" width="960" height="640"></canvas>
+            </div>
+        </div>
+    </div>
     <div class="grid-two">
         <label class="field">
-            <span>Событие</span>
+            <span>Сценарное событие</span>
             <select id="runtime-event-type">
                 <option value="wind_shift">Смена ветра</option>
-                <option value="water_source_failure">Проблема с водой</option>
+                <option value="water_source_failure">Отказ водоснабжения</option>
                 <option value="vehicle_breakdown">Поломка техники</option>
-                <option value="route_blocked">Перекрытие маршрута</option>
-                <option value="secondary_fire">Вторичный очаг</option>
-                <option value="collapse_warning">Риск обрушения</option>
-                <option value="visibility_drop">Падение видимости</option>
+                <option value="route_blocked">Маршрут заблокирован</option>
+                <option value="secondary_fire">Вторичное возгорание</option>
+                <option value="collapse_warning">Угроза обрушения</option>
+                <option value="visibility_drop">Снижение видимости</option>
             </select>
         </label>
         <label class="field">
-            <span>Параметры JSON</span>
+            <span>Данные события (JSON)</span>
             <input type="text" id="runtime-event-payload" value="{}">
         </label>
     </div>
-    <button class="button primary" type="button" id="create-runtime-event-btn">Применить событие</button>
+    <button class="button primary" type="button" id="create-runtime-event-btn">Добавить событие</button>
 </section>

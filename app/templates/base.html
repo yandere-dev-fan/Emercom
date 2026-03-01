@@ -1,22 +1,20 @@
 <!DOCTYPE html>
-<html lang="ru">
-
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}ТП Тренажер{% endblock %}</title>
+    <title>{% block title %}TP Trainer{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', path='css/app.css') }}">
 </head>
-
 <body>
     <header class="site-header">
-        <a class="brand" href="{{ url_for('landing') }}">ТП Тренажер</a>
+        <a class="brand" href="{{ url_for('landing') }}">TP Trainer</a>
         <nav class="top-nav">
-            <a class="button" href="{{ url_for('template_library_page') }}">Карты</a>
+            <a class="button" href="{{ url_for('template_library_page') }}">Maps</a>
             {% if auth_session %}
-            <span class="pill">{{ {"instructor": "СОЗДАТЕЛЬ", "dispatcher": "ДИСПЕТЧЕР", "rtp": "РТП", "observer": "НАБЛЮДАТЕЛЬ", "waiting": "ОЖИДАНИЕ"}.get(auth_session.role, auth_session.role|upper) }}</span>
+            <span class="pill">{{ {"instructor": "INSTRUCTOR", "dispatcher": "DISPATCHER", "rtp": "RTP", "observer": "OBSERVER", "waiting": "WAITING"}.get(auth_session.role, auth_session.role|upper) }}</span>
             {% if current_session_code %}
-            <a class="button" href="{{ url_for('session_page', session_code=current_session_code) }}">Текущая сессия</a>
+            <a class="button" href="{{ url_for('session_page', session_code=current_session_code) }}">Current Session</a>
             {% endif %}
             {% endif %}
         </nav>
@@ -25,5 +23,4 @@
         {% block content %}{% endblock %}
     </main>
 </body>
-
 </html>

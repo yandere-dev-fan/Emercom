@@ -1,6 +1,6 @@
 {% extends "base_v2.html" %}
 
-{% block title %}Библиотека карт | ТП Тренажер{% endblock %}
+{% block title %}Библиотека карт | ТП-СИМУЛЯТОР{% endblock %}
 
 {% block content %}
 <section class="panel stack gap-m">
@@ -8,12 +8,13 @@
         <div>
             <p class="eyebrow">Библиотека карт</p>
             <h1>Шаблоны карт</h1>
-            <p class="lead">Здесь создаются карты местности и карты объекта. При запуске сессии они копируются в рабочую версию.</p>
+            <p class="lead">Создавайте шаблоны общей зоны и объектов. При создании сессии они клонируются в рабочие
+                карты.</p>
         </div>
         <a class="button primary" href="{{ url_for('new_template_page') }}">Создать карту</a>
     </div>
     <section class="stack gap-s">
-        <h2>Карты местности</h2>
+        <h2>Карты общей зоны</h2>
         <div class="grid-cards">
             {% for item in area_templates %}
             <a class="map-card" href="{{ url_for('template_editor_page', map_id=item.id) }}">
@@ -23,14 +24,14 @@
             </a>
             {% else %}
             <div class="map-card">
-                <strong>Пока нет карт местности</strong>
-                <span>Создайте хотя бы одну карту перед запуском сессии.</span>
+                <strong>Карт общей зоны пока нет</strong>
+                <span>Создайте одну перед запуском сессии.</span>
             </div>
             {% endfor %}
         </div>
     </section>
     <section class="stack gap-s">
-        <h2>Карты объекта</h2>
+        <h2>Карты объектов</h2>
         <div class="grid-cards">
             {% for item in object_templates %}
             <a class="map-card" href="{{ url_for('template_editor_page', map_id=item.id) }}">
@@ -40,8 +41,8 @@
             </a>
             {% else %}
             <div class="map-card">
-                <strong>Пока нет карт объекта</strong>
-                <span>Создайте карту дома, чтобы открыть объектную фазу у РТП.</span>
+                <strong>Карт объектов пока нет</strong>
+                <span>Создайте план здания для объектной фазы.</span>
             </div>
             {% endfor %}
         </div>

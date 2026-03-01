@@ -12,3 +12,13 @@ def test_weighted_a_star_prefers_lower_total_cost() -> None:
     assert path[0] == 0
     assert path[-1] == 2
     assert 1 not in path[1:-1]
+
+
+def test_weighted_a_star_returns_empty_when_target_blocked() -> None:
+    costs = [
+        1, None, 1,
+        1, None, 1,
+        1, None, 1,
+    ]
+    path = weighted_a_star(width=3, height=3, start_index=0, target_index=2, cell_costs=costs)
+    assert path == []
