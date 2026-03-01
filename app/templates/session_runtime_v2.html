@@ -98,5 +98,24 @@
         </div>
     </section>
 </section>
+
+    <section class="panel compact stack gap-s">
+        <h2>Рация</h2>
+        <div class="row gap-s align-center">
+            <button id="ptt-btn" class="button" disabled>🎙 PTT</button>
+            <span id="ptt-channel-info" class="muted"></span>
+        </div>
+        <p id="ptt-status" class="ptt-status muted">Инициализация…</p>
+        <p class="muted" style="font-size:0.8em">
+            Удерживай кнопку или <kbd>Space</kbd> для передачи
+        </p>
+    </section>
+</section>
+
+<script>
+    window.WALKIE_SERVER = location.origin + "/walkie";
+</script>
+<script src="{{ url_for('static', path='js/walkie_api.js') }}"></script>
+<script src="{{ url_for('static', path='js/voice_ptt.js') }}"></script>
 <script type="module" src="{{ url_for('static', path='js/session_runtime_v2.js') }}"></script>
 {% endblock %}

@@ -5,6 +5,7 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: redis://redis:6379/0
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      WALKIE_URL: http://walkie:8000
     depends_on:
       db:
         condition: service_healthy
@@ -40,6 +41,9 @@ services:
       interval: 5s
       timeout: 3s
       retries: 12
+  walkie:
+    build: ./walkie
+    restart: unless-stopped
 
   caddy:
     image: caddy:2

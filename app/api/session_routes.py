@@ -406,3 +406,35 @@ async def put_nozzle(
     )
     await request.app.state.ws_manager.broadcast(session_code, {"type": "fire_state_changed", "nozzle": nozzle})
     return {"ok": True, "nozzle": nozzle}
+import json
+import os
+from urllib.request import Request as UrlRequest, urlopen
+from urllib.error import URLError
+
+
+@router.get("/{session_code}/walkie/channel")
+def get_walkie_channel(
+    session_code: str,
+    request: Request,
+    db: DbSession,
+    settings: AppSettings,
+) -> dict[str, object]:
+    auth_session, _ = _load_context(request, db, settings, session_code)
+
+    if not hasattr(request.app.state, "walkie_channels"):
+        request.app.state.walkie_channels = {}
+
+    cache: dict[str, str] = request.app.state.walkie_channels
+
+    if session_code in cache:
+        return {"ok": True, "code": cache[session_code]}
+
+    walkie_base = os.getenv("WALKIE_URL", "http://walkie:8000")
+    try:
+        req = UrlRequest(f"{walkie_base}/create", method="POST")
+        with urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read())
+        cache[session_code] = data["code"]
+        return {"ok": True, "code": data["code"]}
+    except URLError as exc:
+        raise HTTPException(status_code=503, detail=f"Walkie unavailable: {exc}")

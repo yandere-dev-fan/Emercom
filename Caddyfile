@@ -1,7 +1,14 @@
-localhost {
-    reverse_proxy app:8000 {
-        header_up Host {host}
-        header_up X-Forwarded-Proto {scheme}
-        header_up X-Forwarded-Host {host}
+emercom.online {
+    handle /walkie/* {
+        uri strip_prefix /walkie
+        reverse_proxy walkie:8000
+    }
+
+    handle {
+        reverse_proxy app:8000 {
+            header_up Host {host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-Host {host}
+        }
     }
 }
